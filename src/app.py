@@ -1,133 +1,343 @@
-import streamlit as st
-import os
-from PIL import Image
-from convert_to_bw import process_images
+import sys
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout, QScrollArea, QGridLayout, QRadioButton, QSlider, QCheckBox, QGroupBox, QTabWidget, QComboBox, QStackedLayout
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import QDir, Qt
+from PIL import Image, ImageFilter
 
-# Function to load images from a folder or list of files
-def load_images_from_folder(folder, start_idx=0, num_images=10):
-    images = []
-    filenames = os.listdir(folder)
-    for filename in filenames[start_idx:start_idx + num_images]:
-        img = Image.open(os.path.join(folder, filename))
-        if img is not None:
-            images.append((filename, img))
-    return images, len(filenames) > start_idx + num_images
+# Constants
+WINDOW_HEIGHT = 1000
+WINDOW_WIDTH = 1800
+IMAGE_HEIGHT = 500
+IMAGE_WIDTH = 500
+THUMBNAIL_SIZE = 100
+THUMBNAILS_PER_PAGE = 10
+THUMBNAILS_PER_ROW = 10
 
-# Function to load images from uploaded files
-def load_images_from_files(files):
-    images = []
-    for file in files:
-        img = Image.open(file)
-        if img is not None:
-            images.append((file.name, img))
-    return images
 
-# Function to save images to a new folder
-def save_images_to_folder(images, output_folder):
-    os.makedirs(output_folder, exist_ok=True)
-    for filename, img in images:
-        img.save(os.path.join(output_folder, filename))
+class EyeballProject(QMainWindow):
+    """EyeballProject's main window (GUI or view)."""
 
-st.set_page_config(page_title="Image Processing App", layout="wide")
+    def __init__(self):
+        super().__init__()
+        self.folderPath = ""
+        self.images = []
+        self.processedImages = []
+        self.imageCount = 0
+        self.currentThumbnailPage = 0
 
-# Inspector side panel
-st.sidebar.header("Inspector Panel")
-radio_input = st.sidebar.radio("Radio Input", ["Option 1", "Option 2", "Option 3"])
-slider_input = st.sidebar.slider("Slider Input", 0, 100, 50)
-number_input = st.sidebar.number_input("Number Input", min_value=0, max_value=100, value=10)
-text_input = st.sidebar.text_input("Text Input", value="Enter text here")
+        self.init_UI()
 
-# Tabs for the three-step process
-tabs = st.tabs(["Getting Inputs", "Preview", "Output"])
+    def init_UI(self):
+        """Initialises UI elements."""
+        self.setWindowTitle("Eyeball Project")
 
-with tabs[0]:
-    st.title("Step 1: Getting Inputs")
+        # Main layout and widget
+        layout = QVBoxLayout()
+        widget = QWidget()
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)
 
-    # File uploader for folder or multiple files
-    uploaded_files = st.file_uploader("Upload images (multiple files allowed)", type=["png", "jpg", "jpeg"], accept_multiple_files=True  )
-    folder = st.text_input("Or enter a folder path with images:")
-    
-    if uploaded_files or folder:
-        if uploaded_files:
-            images = load_images_from_files(uploaded_files)
-        elif folder:
-            if os.path.exists(folder):
-                start_idx = st.session_state.get('start_idx', 0)
-                num_images = st.session_state.get('num_images', 10)
-                images, more_images = load_images_from_folder(folder, start_idx, num_images)
-            else:
-                st.error("Folder does not exist.")
-        st.session_state['images'] = images
-        st.session_state['folder'] = folder
-        st.session_state['uploaded_files'] = uploaded_files
-    
+        # region TopLayout
+        # Top Layout - houses the folder selector and run model button
+        self.topGroup = QGroupBox("Load Dataset")
+        topLayout = QHBoxLayout()
 
-with tabs[1]:
-    st.title("Step 2: Preview")
+        # Button to load images
+        self.btnLoad = QPushButton('Load Images')
+        self.btnLoad.clicked.connect(self.selectDataset)
+        topLayout.addWidget(self.btnLoad, 1)
 
-    if 'images' in st.session_state:
-        images = st.session_state['images']
-        
-        # Display images in a grid
-        st.subheader("Image Preview")
-        cols = st.columns(5)
-        for i, (filename, img) in enumerate(images):
-            with cols[i % 5]:
-                st.image(img, caption=filename, use_column_width=True)
-        
-        # Display images in a carousel (simple implementation)
-        st.subheader("Image Carousel")
-        for filename, img in images:
-            st.image(img, caption=filename, use_column_width=True)
-        
-        if 'folder' in st.session_state and st.session_state['folder']:
-            if len(os.listdir(st.session_state['folder'])) > len(images):
-                if st.button("Load More"):
-                    st.session_state['start_idx'] += 10
-                    images, more_images = load_images_from_folder(st.session_state['folder'], st.session_state['start_idx'], 10)
-                    st.session_state['images'].extend(images)
-                    st.rerun()
-    else:
-        st.warning("No images uploaded or selected.")
+        # Label to display number of images
+        self.imageCountLabel = QLabel('No images selected')
+        topLayout.addWidget(self.imageCountLabel, 2)
 
-    if st.button("Next Step"):
-        st.session_state['active_tab'] = "Output"
-        st.rerun()
+        # Button to run model
+        self.btnRunModel = QPushButton('Run Model')
+        self.btnRunModel.clicked.connect(self.runModel)
+        self.btnRunModel.setEnabled(False)
+        topLayout.addWidget(self.btnRunModel, 1)
 
-with tabs[2]:
-    st.title("Step 3: Output")
+        # Adding top layout to main layout
+        self.topGroup.setLayout(topLayout)
+        layout.addWidget(self.topGroup)
+        # endregion TopLayout
 
-    if 'images' in st.session_state:
-        if st.button("Run Model"):
-            output_folder = "processed_images"
-            if 'folder' in st.session_state and st.session_state['folder']:
-                process_images(st.session_state['folder'], output_folder)
-            elif 'uploaded_files' in st.session_state:
-                os.makedirs(output_folder, exist_ok=True)
-                for filename, img in st.session_state['images']:
-                    img.save(os.path.join(output_folder, filename))
-                process_images(output_folder, output_folder)
-            st.session_state['output_folder'] = output_folder
-            st.rerun()
+        # region MiddleLayout
+        # Middle Layout - houses the image viewer and processing parameters
+        midLayout = QHBoxLayout()
 
-        output_folder = st.session_state.get('output_folder', None)
-        if output_folder is not None:
-            st.success("Model processing complete!")
+        imgViewerLayout = QVBoxLayout()
+        imgViewerGroup = QGroupBox("Image Preview")
 
-            # Display processed images
-            st.subheader("Processed Images")
-            images, _ = load_images_from_folder(output_folder)
-            for filename, img in images:
-                st.image(img, caption=f"Processed: {filename}", use_column_width=True)
+        # Tab widget for input and output images
+        self.tabWidget = QTabWidget()
+        self.inputTab = QWidget()
+        self.outputTab = QWidget()
 
-            if st.button("Save to Directory"):
-                save_images_to_folder(images, "processed_images")
-                st.success("Images saved to processed_images directory.")
-        else:
-            st.warning("No processed images to display.")
-    else:
-        st.warning("No images to process.")
+        # Stacked layout for image previews
+        self.inputImageLabel = QLabel('Input preview goes here')
+        self.inputImageLabel.setFixedSize(IMAGE_WIDTH, IMAGE_HEIGHT)
+        self.inputImageLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        inputLayout = QVBoxLayout()
+        inputLayout.addWidget(self.inputImageLabel,
+                              alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.inputTab.setLayout(inputLayout)
 
-    if st.button("Back to Preview"):
-        st.session_state['active_tab'] = "Preview"
-        st.rerun()
+        self.outputImageLabel = QLabel('Output preview goes here')
+        self.outputImageLabel.setFixedSize(IMAGE_WIDTH, IMAGE_HEIGHT)
+        self.outputImageLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        outputLayout = QVBoxLayout()
+        outputLayout.addWidget(self.outputImageLabel,
+                               alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.outputTab.setLayout(outputLayout)
+
+        self.tabWidget.addTab(self.inputTab, "Input Image")
+        self.tabWidget.addTab(self.outputTab, "Output Image")
+
+        imgViewerLayout.addWidget(self.tabWidget)
+        imgViewerGroup.setLayout(imgViewerLayout)
+        midLayout.addWidget(imgViewerGroup, 3)
+
+        # Scroll area for thumbnails
+        self.scrollArea = QScrollArea()
+        self.thumbnailGrid = QGridLayout()
+        self.thumbnailGrid.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.thumbnailWidget = QWidget()
+        self.thumbnailWidget.setLayout(self.thumbnailGrid)
+        self.scrollArea.setWidget(self.thumbnailWidget)
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setFixedHeight(300)
+        imgViewerLayout.addWidget(self.scrollArea)
+
+        # Pagination controls
+        paginationLayout = QHBoxLayout()
+        self.prevPageButton = QPushButton("Previous")
+        self.prevPageButton.clicked.connect(self.prevThumbnailPage)
+        self.nextPageButton = QPushButton("Next")
+        self.nextPageButton.clicked.connect(self.nextThumbnailPage)
+        self.pageLabel = QLabel(
+            "Page 1", alignment=Qt.AlignmentFlag.AlignCenter)
+
+        paginationLayout.addWidget(self.prevPageButton)
+        paginationLayout.addWidget(self.pageLabel)
+        paginationLayout.addWidget(self.nextPageButton)
+        imgViewerLayout.addLayout(paginationLayout)
+
+        # region Sidebar for image processing parameters
+        sidebarLayout = QVBoxLayout()
+        sidebarLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        sidebarLayout.setSpacing(10)
+        sidebarGroup = QGroupBox("Model Parameters")
+
+        radioLayout = QHBoxLayout()
+        self.modeLabel = QLabel("Mode")
+        sidebarLayout.addWidget(self.modeLabel)
+        self.bwRadioButton = QRadioButton("Black and White")
+        self.colorRadioButton = QRadioButton("Color")
+        self.colorRadioButton.setChecked(True)
+        radioLayout.addWidget(self.bwRadioButton)
+        radioLayout.addWidget(self.colorRadioButton)
+        sidebarLayout.addLayout(radioLayout)
+
+        self.colorFilterLabel = QLabel("Color Filter")
+        sidebarLayout.addWidget(self.colorFilterLabel)
+        self.colorFilterComboBox = QComboBox()
+        self.colorFilterComboBox.addItems(["None", "Red", "Green", "Blue"])
+        sidebarLayout.addWidget(self.colorFilterComboBox)
+
+        self.blurLabel = QLabel("Blur")
+        sidebarLayout.addWidget(self.blurLabel)
+        self.blurCheckBox = QCheckBox("Blur")
+        sidebarLayout.addWidget(self.blurCheckBox)
+
+        # Add the sidebar to the middle layout
+        sidebarGroup.setLayout(sidebarLayout)
+        midLayout.addWidget(sidebarGroup, 1)
+
+        # Adding middle layout to main layout
+        layout.addLayout(midLayout)
+        # endregion MiddleLayout
+
+        # region BottomLayout
+        # BottomLayer - Download options
+        self.bottomGroup = QGroupBox("Save Options")
+        bottomLayout = QHBoxLayout()
+
+        self.btnSave = QPushButton('Save Images')
+        self.btnSave.clicked.connect(self.saveImages)
+        self.btnSave.setEnabled(False)
+        bottomLayout.addWidget(self.btnSave, 1)
+
+        self.saveDirLabel = QLabel('No directory selected')
+        bottomLayout.addWidget(self.saveDirLabel, 2)
+
+        self.bottomGroup.setLayout(bottomLayout)
+        layout.addWidget(self.bottomGroup)
+        # endregion BottomLayout
+
+    # region Event Handlers
+    def selectDataset(self):
+        folderPath = QFileDialog.getExistingDirectory(
+            self, 'Select Folder Containing Images')
+        if folderPath:
+            dir = QDir(folderPath)
+            dir.setNameFilters(["*.jpg", "*.jpeg", "*.png", "*.bmp"])
+            self.imageFiles = dir.entryList()
+            self.imageCount = len(self.imageFiles)
+            self.imageCountLabel.setText(
+                f'Path: {folderPath}, Images found: {self.imageCount}')
+
+            self.folderPath = folderPath
+            self.loadImages(folderPath)
+            self.btnRunModel.setEnabled(True)
+
+    def loadImages(self, folderPath):
+        self.images = []
+        for fileName in self.imageFiles:
+            imagePath = QDir(folderPath).filePath(fileName)
+            image = Image.open(imagePath)
+            self.images.append((fileName, image))
+
+        self.updateThumbnails()
+
+    def updateThumbnails(self):
+        # Clear existing thumbnails
+        while self.thumbnailGrid.count():
+            child = self.thumbnailGrid.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        start = self.currentThumbnailPage * THUMBNAILS_PER_PAGE
+        end = min(start + THUMBNAILS_PER_PAGE, len(self.images))
+        row, col = 0, 0
+        for i in range(start, end):
+            fileName, image = self.images[i]
+            pixmap = QPixmap(QDir(self.folderPath).filePath(fileName)).scaled(
+                THUMBNAIL_SIZE, THUMBNAIL_SIZE, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+            thumbnailLabel = QLabel()
+            thumbnailLabel.setPixmap(pixmap)
+            thumbnailLabel.mousePressEvent = lambda event, path=QDir(
+                self.folderPath).filePath(fileName): self.setMainImage(path)
+            self.thumbnailGrid.addWidget(thumbnailLabel, row, col)
+            col += 1
+            if col >= THUMBNAILS_PER_ROW:
+                col = 0
+                row += 1
+
+        self.pageLabel.setText(f"Page {self.currentThumbnailPage + 1}")
+
+    def prevThumbnailPage(self):
+        if self.currentThumbnailPage > 0:
+            self.currentThumbnailPage -= 1
+            self.updateThumbnails()
+
+    def nextThumbnailPage(self):
+        if (self.currentThumbnailPage + 1) * THUMBNAILS_PER_PAGE < len(self.images):
+            self.currentThumbnailPage += 1
+            self.updateThumbnails()
+
+    def setMainImage(self, imagePath):
+        pixmap = QPixmap(imagePath).scaled(
+            IMAGE_WIDTH, IMAGE_HEIGHT, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+        self.inputImageLabel.setPixmap(pixmap)
+        self.tabWidget.setCurrentIndex(0)
+
+    def runModel(self):
+        # Process the images based on the selected parameters
+        self.processedImages = []
+        for fileName, image in self.images:
+            if self.bwRadioButton.isChecked():
+                image = image.convert("L")  # Convert to black and white
+            elif self.colorFilterComboBox.currentText() != "None":
+                image = self.applyColorFilter(
+                    image, self.colorFilterComboBox.currentText())
+
+            if self.blurCheckBox.isChecked():
+                image = image.filter(ImageFilter.GaussianBlur(5))
+
+            self.processedImages.append((fileName, image))
+
+        self.updateOutputThumbnails()
+        self.btnSave.setEnabled(True)
+
+    def applyColorFilter(self, image, color):
+        # Apply color filter to the image
+        r, g, b = image.split()
+        if color == "Red":
+            r = r.point(lambda i: i * 1.5)
+            image = Image.merge("RGB", (r, g, b))
+        elif color == "Green":
+            g = g.point(lambda i: i * 1.5)
+            image = Image.merge("RGB", (r, g, b))
+        elif color == "Blue":
+            b = b.point(lambda i: i * 1.5)
+            image = Image.merge("RGB", (r, g, b))
+        return image
+
+    def updateOutputThumbnails(self):
+        # Clear existing thumbnails
+        while self.thumbnailGrid.count():
+            child = self.thumbnailGrid.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        start = self.currentThumbnailPage * THUMBNAILS_PER_PAGE
+        end = min(start + THUMBNAILS_PER_PAGE, len(self.processedImages))
+        row, col = 0, 0
+        for i in range(start, end):
+            fileName, image = self.processedImages[i]
+            thumbnailPath = f"temp_{fileName}"
+            image.save(thumbnailPath)
+            pixmap = QPixmap(thumbnailPath).scaled(
+                THUMBNAIL_SIZE, THUMBNAIL_SIZE, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+            thumbnailLabel = QLabel()
+            thumbnailLabel.setPixmap(pixmap)
+            thumbnailLabel.mousePressEvent = lambda event, path=thumbnailPath: self.setOutputImage(
+                path)
+            self.thumbnailGrid.addWidget(thumbnailLabel, row, col)
+            col += 1
+            if col >= THUMBNAILS_PER_ROW:
+                col = 0
+                row += 1
+
+        self.pageLabel.setText(f"Page {self.currentThumbnailPage + 1}")
+
+        if self.processedImages:
+            self.setOutputImage(self.processedImages[0][0])
+
+    def setOutputImage(self, fileName):
+        image = None
+        for fName, img in self.processedImages:
+            if fName == fileName:
+                image = img
+                break
+        if image:
+            image.save("temp_output_image.png")
+            pixmap = QPixmap("temp_output_image.png").scaled(
+                IMAGE_WIDTH, IMAGE_HEIGHT, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+            self.outputImageLabel.setPixmap(pixmap)
+            self.tabWidget.setCurrentIndex(1)
+
+    def saveImages(self):
+        saveDir = QFileDialog.getExistingDirectory(
+            self, 'Select Directory to Save Images')
+        if saveDir:
+            self.saveDirLabel.setText(f'Save directory: {saveDir}')
+            for fileName, image in self.processedImages:
+                image.save(QDir(saveDir).filePath(fileName))
+            print(f'Saved {len(self.processedImages)} images to {saveDir}')
+
+# region Main
+
+
+def main():
+    """EyeballProject's main function."""
+    pyApp = QApplication([])
+    pyAppWindow = EyeballProject()
+    pyAppWindow.showMaximized()
+    pyAppWindow.show()
+    sys.exit(pyApp.exec())
+
+
+if __name__ == "__main__":
+    main()

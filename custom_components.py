@@ -26,7 +26,7 @@ class QImagePreview(QWidget):
         self.imagePreviewLabel = QLabel('Preview goes here')
         self.imagePreviewLabel.setFixedSize(IMAGE_WIDTH, IMAGE_HEIGHT)
         self.imagePreviewLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.imagePreviewLabel)
+        layout.addWidget(self.imagePreviewLabel, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Scroll area for thumbnails
         self.scrollArea = QScrollArea()
@@ -60,7 +60,6 @@ class QImagePreview(QWidget):
     
     def updateThumbnails(self):
         # Clear existing thumbnails
-        print(self.thumbnailGrid.count())
         while self.thumbnailGrid.count():
             child = self.thumbnailGrid.takeAt(0)
             if child.widget():
@@ -130,10 +129,10 @@ class QImagePreview(QWidget):
     def pil_image_to_qimage(self, pil_img):
         if pil_img.mode == "RGB":
             r, g, b = pil_img.split()
-            pil_img = Image.merge("RGB", (b, g, r))
+            pil_img = Image.merge("RGB", (r, g, b))
         elif pil_img.mode == "RGBA":
             r, g, b, a = pil_img.split()
-            pil_img = Image.merge("RGBA", (b, g, r, a))
+            pil_img = Image.merge("RGBA", (r, g, b, a))
 
         pil_img = pil_img.convert("RGBA")
         data = pil_img.tobytes("raw", "RGBA")

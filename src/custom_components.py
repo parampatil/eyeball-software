@@ -2,11 +2,12 @@ from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QScrollArea, QGridLayo
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import QDir, Qt
 from PIL import ImageQt, Image
+
 import numpy as np
 IMAGE_HEIGHT = 500
 IMAGE_WIDTH = 500
 THUMBNAIL_SIZE = 100
-THUMBNAILS_PER_PAGE = 10
+THUMBNAILS_PER_PAGE = 20
 THUMBNAILS_PER_ROW = 10
 
 class QImagePreview(QWidget):
@@ -71,6 +72,7 @@ class QImagePreview(QWidget):
         for i in range(start, end):
             if self.images is not None:
                 image = self.np2qimage(self.images[i])
+
                 pixmap = QPixmap.fromImage(image).scaled(
                     THUMBNAIL_SIZE, THUMBNAIL_SIZE, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
                 
@@ -92,6 +94,13 @@ class QImagePreview(QWidget):
             if col >= THUMBNAILS_PER_ROW:
                 col = 0
                 row += 1
+
+        # Set the first image as the preview
+        if self.images is not None:
+            img = self.pil_image_to_qimage(self.images[start])
+            self.setInputPreviewImage(image=img)
+        else:
+            self.setInputPreviewImage(path=QDir(self.folderPath).filePath(self.imageFiles[start]))
 
         self.pageLabel.setText(f"Page {self.currentThumbnailPage + 1}")
 

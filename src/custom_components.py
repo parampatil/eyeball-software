@@ -3,6 +3,7 @@ from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import QDir, Qt
 from PIL import ImageQt, Image
 
+import numpy as np
 IMAGE_HEIGHT = 500
 IMAGE_WIDTH = 500
 THUMBNAIL_SIZE = 100
@@ -52,7 +53,7 @@ class QImagePreview(QWidget):
         layout.addLayout(paginationLayout)
 
     def getImageCount(self):
-        if self.images:
+        if self.images is not None:
             return len(self.images)
         elif self.imageFiles:
             return len(self.imageFiles)
@@ -70,7 +71,8 @@ class QImagePreview(QWidget):
         row, col = 0, 0
         for i in range(start, end):
             if self.images is not None:
-                image = self.pil_image_to_qimage(self.images[i])
+                image = self.np2qimage(self.images[i])
+
                 pixmap = QPixmap.fromImage(image).scaled(
                     THUMBNAIL_SIZE, THUMBNAIL_SIZE, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
                 
@@ -121,7 +123,7 @@ class QImagePreview(QWidget):
             self.currentThumbnailPage += 1
             self.updateThumbnails()
 
-    def setImages(self, images:list):
+    def setImages(self, images:np.array):
         self.images = images
         self.imageCount = self.getImageCount() 
         self.updateThumbnails()
@@ -133,14 +135,12 @@ class QImagePreview(QWidget):
         self.imageCount = self.getImageCount()
         self.updateThumbnails()
 
-    def pil_image_to_qimage(self, pil_img):
-        if pil_img.mode == "RGB":
-            r, g, b = pil_img.split()
-            pil_img = Image.merge("RGB", (r, g, b))
-        elif pil_img.mode == "RGBA":
-            r, g, b, a = pil_img.split()
-            pil_img = Image.merge("RGBA", (r, g, b, a))
+    def np2qimage(self, img:np.array):
+        h,w,c = img.shape
+        qimg = QImage(img.data, w, h, c*w, QImage.Format.Format_RGBA8888)
+        return qimg
 
+    def pil_image_to_qimage(self, pil_img):
         pil_img = pil_img.convert("RGBA")
         data = pil_img.tobytes("raw", "RGBA")
         qimg = QImage(data, pil_img.width, pil_img.height, QImage.Format.Format_RGBA8888)

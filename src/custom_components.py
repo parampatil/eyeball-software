@@ -97,7 +97,7 @@ class QImagePreview(QWidget):
 
         # Set the first image as the preview
         if self.images is not None:
-            img = self.pil_image_to_qimage(self.images[start])
+            img = self.np2qimage(self.images[start])
             self.setInputPreviewImage(image=img)
         else:
             self.setInputPreviewImage(path=QDir(self.folderPath).filePath(self.imageFiles[start]))
@@ -140,8 +140,8 @@ class QImagePreview(QWidget):
         qimg = QImage(img.data, w, h, c*w, QImage.Format.Format_RGBA8888)
         return qimg
 
-    def pil_image_to_qimage(self, pil_img):
-        pil_img = pil_img.convert("RGBA")
-        data = pil_img.tobytes("raw", "RGBA")
-        qimg = QImage(data, pil_img.width, pil_img.height, QImage.Format.Format_RGBA8888)
-        return qimg
+    # def pil_image_to_qimage(self, pil_img):
+    #     pil_img = pil_img.convert("RGBA")
+    #     data = pil_img.tobytes("raw", "RGBA")
+    #     qimg = QImage(data, pil_img.width, pil_img.height, QImage.Format.Format_RGBA8888)
+    #     return qimg

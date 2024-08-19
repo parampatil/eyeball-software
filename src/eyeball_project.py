@@ -6,7 +6,6 @@ from PyQt6.QtGui import QIntValidator, QDoubleValidator
 from PyQt6.QtCore import QDir, Qt
 from PIL import Image, ImageFilter
 from custom_components import QImagePreview
-import utils
 import numpy as np 
 
 # Constants
@@ -336,16 +335,24 @@ class EyeballProject(QMainWindow):
 
     def applyColorFilter(self, image, color):
         # Apply color filter to the image
-        rgb = image.split()
-        if color == "Red":
-            rgb[0] = rgb[0].point(lambda i: i * 1.5)
-        elif color == "Green":
-            rgb[1] = rgb[1].point(lambda i: i * 1.5)
-        elif color == "Blue":
-            rgb[2] = rgb[2].point(lambda i: i * 1.5)
+        if image.mode == "RGBA":
+            r, g, b, a = image.split()
+        else:
+            r, g, b = image.split()
 
-        image = Image.merge("RGB", rgb)        
+        if color == "Red":
+            r = r.point(lambda i: i * 1.5)
+        elif color == "Green":
+            g = g.point(lambda i: i * 1.5)
+        elif color == "Blue":
+            b = b.point(lambda i: i * 1.5)
+        
+        if image.mode == "RGB":
+            image = Image.merge("RGB", (r, g, b))
+        elif image.mode == "RGBA":
+            image = Image.merge("RGBA", (r, g, b, a))
         return image
+
 
     def runModel(self):
         # Process the images based on the selected parameters
@@ -366,6 +373,7 @@ class EyeballProject(QMainWindow):
         
         self.outputTab.setImages(images=self.processedImages)
         self.tabWidget.setTabEnabled(1, True)
+        self.tabWidget.setCurrentIndex(1)
         self.btnSave.setEnabled(True)
 
     def saveImages(self):
@@ -408,7 +416,7 @@ class EyeballProject(QMainWindow):
         self.peripheralSigmaLabel.setEnabled(is_enabled)
         self.peripheralSigmaField.setEnabled(is_enabled)
 
-    def create_memmap(size, path='temp.mmap', dtype='uint8', mode='w+'):
+    def create_memmap(self, size, path='temp.mmap', dtype='uint8', mode='w+'):
         """Creates a np memmap object to store and access large np arrays dynamically from disk. 
         Use this to hold the processed output images."""
         return np.memmap(filename=path, dtype=dtype, mode=mode, shape=size)

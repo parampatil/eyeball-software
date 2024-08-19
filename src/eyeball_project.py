@@ -1,7 +1,7 @@
 import sys
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout,\
-        QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit
+        QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar
 from PyQt6.QtGui import QIntValidator, QDoubleValidator
 from PyQt6.QtCore import QDir, Qt
 from PIL import Image, ImageFilter
@@ -287,20 +287,30 @@ class EyeballProject(QMainWindow):
         #endregion MiddleLayout
 
         #region BottomLayout
-        # BottomLayer - Download options
+        # BottomLayer - Save options and progress bar
         self.bottomGroup = QGroupBox("Save Options")
         bottomLayout = QHBoxLayout()
 
+        # Button to save images
         self.btnSave = QPushButton('Save Images')
         self.btnSave.clicked.connect(self.saveImages)
         self.btnSave.setEnabled(False)
         bottomLayout.addWidget(self.btnSave, 1)
 
+        # Label to display save directory
         self.saveDirLabel = QLabel('No directory selected')
         bottomLayout.addWidget(self.saveDirLabel, 2)
 
+        # Progress Bar
+        self.progressBar = QProgressBar()
+        self.progressBar.minimum = 0
+        self.progressBar.value = 40
+        bottomLayout.addWidget(self.progressBar)
+
         self.bottomGroup.setLayout(bottomLayout)
         layout.addWidget(self.bottomGroup)
+
+        
         #endregion BottomLayout
 
 
@@ -325,6 +335,8 @@ class EyeballProject(QMainWindow):
             self.inputTab.setImagePath(folder=folderPath, images=self.imageFiles)
             self.btnRunModel.setEnabled(True)
             self.processedImages = None
+
+            self.progressBar.setMaximum(self.imageCount)
         #self.showMaximized()
             
     def inferImgSize(self):
@@ -370,6 +382,7 @@ class EyeballProject(QMainWindow):
                 image = image.filter(ImageFilter.GaussianBlur(5))
 
             self.processedImages[i] = image
+            self.progressBar.setValue(i+1)
         
         self.outputTab.setImages(images=self.processedImages)
         self.tabWidget.setTabEnabled(1, True)

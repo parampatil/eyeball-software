@@ -40,7 +40,7 @@ EyeballProject is a GUI application designed to simulate how the human eye perce
 
 ### To-Do
 - [ ] Merge Client's Script: Integrate the client's existing script for additional processing.
-- [ ] Add UI Kit: Implement a UI kit for consistent design and improved user experience.
+- [x] Add UI Kit: Implement a UI kit for consistent design and improved user experience.
 - [ ] Add Prompts for Status: Provide real-time status updates to the user during image processing.
-- [ ] Add Progress Bar: Display a progress bar to indicate the completion status of the image processing tasks.
+- [x] Add Progress Bar: Display a progress bar to indicate the completion status of the image processing tasks.
 - [ ] Add Multi-Thread Support: Improve performance by implementing multi-threading for concurrent processing.

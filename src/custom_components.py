@@ -1,18 +1,18 @@
-from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QScrollArea, QGridLayout, QHBoxLayout, QPushButton
+from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QScrollArea, QGridLayout, QHBoxLayout, QPushButton, QSizePolicy, QDialog
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import QDir, Qt
 from PIL import ImageQt, Image
 
 import numpy as np
-IMAGE_HEIGHT = 500
-IMAGE_WIDTH = 500
-THUMBNAIL_SIZE = 100
-THUMBNAILS_PER_PAGE = 20
-THUMBNAILS_PER_ROW = 10
+THUMBNAILS_PER_PAGE = 24
+THUMBNAILS_PER_ROW = 8
 
 class QImagePreview(QWidget):
     def __init__(self, parent=None, folderPath: QDir = None, imageFiles: QDir = None, images:list = None):
         super().__init__(parent)
+        self.THUMBNAIL_SIZE = 0
+        self.IMAGE_HEIGHT = 0
+        self.IMAGE_WIDTH = 0
         self.setupUI()
         self.currentThumbnailPage = 0
         self.folderPath = folderPath if folderPath else None
@@ -24,10 +24,12 @@ class QImagePreview(QWidget):
         layout = QVBoxLayout(self)
 
         # Main image display
-        self.imagePreviewLabel = QLabel('Preview goes here')
-        self.imagePreviewLabel.setFixedSize(IMAGE_WIDTH, IMAGE_HEIGHT)
-        self.imagePreviewLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.imagePreviewLabel, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.dialog = QDialog()
+        self.dialog.setWindowTitle("Image Preview")
+        self.imagePreviewLayout = QVBoxLayout(self.dialog)
+        self.imagePreviewLabel = QLabel()
+        self.imagePreviewLabel.setScaledContents(True)
+        self.imagePreviewLayout.addWidget(self.imagePreviewLabel)
 
         # Scroll area for thumbnails
         self.scrollArea = QScrollArea()
@@ -36,8 +38,8 @@ class QImagePreview(QWidget):
         self.thumbnailWidget.setLayout(self.thumbnailGrid)
         self.scrollArea.setWidget(self.thumbnailWidget)
         self.scrollArea.setWidgetResizable(True)
-        self.scrollArea.setFixedHeight(300)
-        layout.addWidget(self.scrollArea)
+        # self.scrollArea.setFixedHeight(300)
+        layout.addWidget(self.scrollArea, stretch=2)
 
         # Pagination controls
         paginationLayout = QHBoxLayout()
@@ -50,7 +52,11 @@ class QImagePreview(QWidget):
         paginationLayout.addWidget(self.prevPageButton)
         paginationLayout.addWidget(self.pageLabel)
         paginationLayout.addWidget(self.nextPageButton)
-        layout.addLayout(paginationLayout)
+        layout.addLayout(paginationLayout, stretch=1)
+
+        self.THUMBNAIL_SIZE = (1280) // THUMBNAILS_PER_ROW 
+        self.IMAGE_HEIGHT = self.imagePreviewLabel.size().height() // 2
+        self.IMAGE_WIDTH = self.imagePreviewLabel.size().height() // 2
 
     def getImageCount(self):
         if self.images is not None:
@@ -74,7 +80,7 @@ class QImagePreview(QWidget):
                 image = self.np2qimage(self.images[i])
 
                 pixmap = QPixmap.fromImage(image).scaled(
-                    THUMBNAIL_SIZE, THUMBNAIL_SIZE, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+                    self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
                 
                 thumbnailLabel = QLabel()
                 thumbnailLabel.setPixmap(pixmap)
@@ -84,7 +90,7 @@ class QImagePreview(QWidget):
             else:
                 fileName = self.imageFiles[i]
                 pixmap = QPixmap(QDir(self.folderPath).filePath(fileName)).scaled(
-                    THUMBNAIL_SIZE, THUMBNAIL_SIZE, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+                    self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
             
                 thumbnailLabel = QLabel()
                 thumbnailLabel.setPixmap(pixmap)
@@ -95,23 +101,13 @@ class QImagePreview(QWidget):
                 col = 0
                 row += 1
 
-        # Set the first image as the preview
-        if self.images is not None:
-            img = self.np2qimage(self.images[start])
-            self.setInputPreviewImage(image=img)
-        else:
-            self.setInputPreviewImage(path=QDir(self.folderPath).filePath(self.imageFiles[start]))
-
-        self.pageLabel.setText(f"Page {self.currentThumbnailPage + 1}")
-
     def setInputPreviewImage(self, path=None, image=None):
         if path:
-            pixmap = QPixmap(path).scaled(IMAGE_WIDTH, IMAGE_HEIGHT, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+            pixmap = QPixmap(path)
         else:
-            pixmap = QPixmap.fromImage(image).scaled(
-                    IMAGE_WIDTH, IMAGE_WIDTH, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+            pixmap = QPixmap.fromImage(image)
         self.imagePreviewLabel.setPixmap(pixmap)
-
+        self.dialog.open()
 
     def prevThumbnailPage(self):
         if self.currentThumbnailPage > 0:
@@ -139,9 +135,3 @@ class QImagePreview(QWidget):
         h,w,c = img.shape
         qimg = QImage(img.data, w, h, c*w, QImage.Format.Format_RGBA8888)
         return qimg
-
-    # def pil_image_to_qimage(self, pil_img):
-    #     pil_img = pil_img.convert("RGBA")
-    #     data = pil_img.tobytes("raw", "RGBA")
-    #     qimg = QImage(data, pil_img.width, pil_img.height, QImage.Format.Format_RGBA8888)
-    #     return qimg

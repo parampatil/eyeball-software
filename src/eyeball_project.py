@@ -1,21 +1,22 @@
 import sys
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout,\
-        QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar
+        QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea
 from PyQt6.QtGui import QIntValidator, QDoubleValidator
 from PyQt6.QtCore import QDir, Qt
 from PIL import Image, ImageFilter
 from custom_components import QImagePreview
 import numpy as np 
+from qt_material import apply_stylesheet
 
 # Constants
-WINDOW_HEIGHT = 1000
-WINDOW_WIDTH = 1500
-IMAGE_HEIGHT = 500
-IMAGE_WIDTH = 500
-THUMBNAIL_SIZE = 100
-THUMBNAILS_PER_PAGE = 10
-THUMBNAILS_PER_ROW = 10
+# WINDOW_HEIGHT = 1000
+# WINDOW_WIDTH = 1500
+# IMAGE_HEIGHT = 500
+# IMAGE_WIDTH = 500
+# THUMBNAIL_SIZE = 100
+# THUMBNAILS_PER_PAGE = 10
+# THUMBNAILS_PER_ROW = 10
 
 class EyeballProject(QMainWindow):
     """EyeballProject's main window (GUI or view)."""
@@ -38,7 +39,7 @@ class EyeballProject(QMainWindow):
     def init_UI(self):
         """Initialises UI elements."""
         self.setWindowTitle("Eyeball Project")
-        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        # self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
         # Main layout and widget
         layout = QVBoxLayout()
         widget = QWidget()
@@ -63,7 +64,6 @@ class EyeballProject(QMainWindow):
         self.btnRunModel = QPushButton('Run Model')
         self.btnRunModel.clicked.connect(self.runModel)
         self.btnRunModel.setEnabled(False)
-        self.btnRunModel.setStyleSheet("background-color: green")
         topLayout.addWidget(self.btnRunModel,1)
         
         # Adding top layout to main layout
@@ -96,31 +96,54 @@ class EyeballProject(QMainWindow):
         midLayout.addWidget(imgViewerGroup,3)
         
         #region ModelParameters
-        sidebarLayout = QVBoxLayout()
-        sidebarLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        sidebarLayout.setSpacing(10)
-        sidebarGroup = QGroupBox("Model Parameters")
+        
+        # Create the scroll area for the sidebar
+        self.sidebarLayoutWidgetScroll = QScrollArea()
 
-        radioLayout = QHBoxLayout()
+        # Create the widget that will contain the sidebar layout
+        self.sidebarLayoutWidget = QWidget()
+
+        # Create the sidebar layout (QVBoxLayout) and set it to the sidebar widget
+        self.sidebarLayout = QVBoxLayout(self.sidebarLayoutWidget)
+        self.sidebarLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.sidebarLayout.setSpacing(10)
+
+        # Add content to the sidebar layout (e.g., labels, sliders, checkboxes)
+        # self.sidebarLayout.addWidget(someWidget)
+        # ...
+
+        # Set the sidebar widget to the scroll area
+        self.sidebarLayoutWidgetScroll.setWidget(self.sidebarLayoutWidget)
+        self.sidebarLayoutWidgetScroll.setWidgetResizable(True)
+
+        # Create a group box for the sidebar and set the scroll area as its widget
+        sidebarGroup = QGroupBox("Model Parameters")
+        sidebarGroupLayout = QVBoxLayout(sidebarGroup)
+        sidebarGroupLayout.addWidget(self.sidebarLayoutWidgetScroll)
+
+        # Add the group box to your main layout (midLayout)
+        midLayout.addWidget(sidebarGroup, 1)
+
+        self.radioLayout = QHBoxLayout()
         self.modeLabel = QLabel("Mode")
-        sidebarLayout.addWidget(self.modeLabel)
+        self.sidebarLayout.addWidget(self.modeLabel)
         self.bwRadioButton = QRadioButton("Black and White")
         self.colorRadioButton = QRadioButton("Color")
         self.colorRadioButton.setChecked(True)
-        radioLayout.addWidget(self.bwRadioButton)
-        radioLayout.addWidget(self.colorRadioButton)
-        sidebarLayout.addLayout(radioLayout)
+        self.radioLayout.addWidget(self.bwRadioButton)
+        self.radioLayout.addWidget(self.colorRadioButton)
+        self.sidebarLayout.addLayout(self.radioLayout)
 
         self.colorFilterLabel = QLabel("Color Filter")
-        sidebarLayout.addWidget(self.colorFilterLabel)
+        self.sidebarLayout.addWidget(self.colorFilterLabel)
         self.colorFilterComboBox = QComboBox()
         self.colorFilterComboBox.addItems(["None", "Red", "Green", "Blue"])
-        sidebarLayout.addWidget(self.colorFilterComboBox)
+        self.sidebarLayout.addWidget(self.colorFilterComboBox)
 
         self.blurLabel = QLabel("Blur")
-        sidebarLayout.addWidget(self.blurLabel)
+        self.sidebarLayout.addWidget(self.blurLabel)
         self.blurCheckBox = QCheckBox("Blur")
-        sidebarLayout.addWidget(self.blurCheckBox)
+        self.sidebarLayout.addWidget(self.blurCheckBox)
 
         # New Inputs in Sidebar
         # Input Resolution
@@ -129,8 +152,8 @@ class EyeballProject(QMainWindow):
         self.inputResolutionField.setPlaceholderText("Enter resolution in format: 300")
         self.intValidator_inputResolutionField = QIntValidator(0, 10000)
         self.inputResolutionField.setValidator(self.intValidator_inputResolutionField)
-        sidebarLayout.addWidget(self.inputResolutionLabel)
-        sidebarLayout.addWidget(self.inputResolutionField)
+        self.sidebarLayout.addWidget(self.inputResolutionLabel)
+        self.sidebarLayout.addWidget(self.inputResolutionField)
 
         # Fovea Location X, Y
         self.foveaLocationLabel = QLabel("Fovea Location (x, y)")
@@ -147,8 +170,8 @@ class EyeballProject(QMainWindow):
         foveaLocationLayout.addWidget(self.foveaXField)
         foveaLocationLayout.addWidget(QLabel("y:"))
         foveaLocationLayout.addWidget(self.foveaYField)
-        sidebarLayout.addWidget(self.foveaLocationLabel)
-        sidebarLayout.addLayout(foveaLocationLayout)
+        self.sidebarLayout.addWidget(self.foveaLocationLabel)
+        self.sidebarLayout.addLayout(foveaLocationLayout)
 
         # Fovea Radius
         self.foveaRadiusLabel = QLabel("Fovea Radius")
@@ -161,8 +184,8 @@ class EyeballProject(QMainWindow):
         foveaRadiusLayout = QHBoxLayout()
         foveaRadiusLayout.addWidget(self.foveaRadiusSlider)
         foveaRadiusLayout.addWidget(self.foveaRadiusValueLabel)
-        sidebarLayout.addWidget(self.foveaRadiusLabel)
-        sidebarLayout.addLayout(foveaRadiusLayout)
+        self.sidebarLayout.addWidget(self.foveaRadiusLabel)
+        self.sidebarLayout.addLayout(foveaRadiusLayout)
 
         # Connect signals to slots
         self.inputResolutionField.textChanged.connect(self.onResolutionChanged)
@@ -180,8 +203,8 @@ class EyeballProject(QMainWindow):
         peripheralConeCellsLayout.addWidget(self.peripheralConeCellsSlider)
         peripheralConeCellsLayout.addWidget(self.peripheralConeCellsValueLabel)
 
-        sidebarLayout.addWidget(self.peripheralConeCellsLabel)
-        sidebarLayout.addLayout(peripheralConeCellsLayout)
+        self.sidebarLayout.addWidget(self.peripheralConeCellsLabel)
+        self.sidebarLayout.addLayout(peripheralConeCellsLayout)
 
         # Fovea Active Rod Cells
         self.foveaRodCellsLabel = QLabel("Fovea Active Rod Cells")
@@ -195,8 +218,8 @@ class EyeballProject(QMainWindow):
         foveaRodCellsLayout.addWidget(self.foveaRodCellsSlider)
         foveaRodCellsLayout.addWidget(self.foveaRodCellsValueLabel)
 
-        sidebarLayout.addWidget(self.foveaRodCellsLabel)
-        sidebarLayout.addLayout(foveaRodCellsLayout)
+        self.sidebarLayout.addWidget(self.foveaRodCellsLabel)
+        self.sidebarLayout.addLayout(foveaRodCellsLayout)
 
         # Connect signals to slots for updating the value labels
         self.peripheralConeCellsSlider.valueChanged.connect(self.onPeripheralConeCellsChanged)
@@ -205,7 +228,7 @@ class EyeballProject(QMainWindow):
         # Peripheral Gaussian Blur
         self.peripheralBlurToggle = QCheckBox("Peripheral Gaussian Blur")
         self.peripheralBlurToggle.stateChanged.connect(self.onPeripheralBlurToggled)
-        sidebarLayout.addWidget(self.peripheralBlurToggle)
+        self.sidebarLayout.addWidget(self.peripheralBlurToggle)
 
         # Peripheral Gaussian Blur Kernal
         self.peripheralBlurKernalLabel = QLabel("Peripheral Gaussian Blur Kernal")
@@ -214,8 +237,8 @@ class EyeballProject(QMainWindow):
             ["(3,3)", "(5,5)", "(7,7)", "(9,9)", "(11,11)", "(21,21)"])
         self.peripheralBlurKernalLabel.setEnabled(False)
         self.peripheralBlurKernalComboBox.setEnabled(False)
-        sidebarLayout.addWidget(self.peripheralBlurKernalLabel)
-        sidebarLayout.addWidget(self.peripheralBlurKernalComboBox)
+        self.sidebarLayout.addWidget(self.peripheralBlurKernalLabel)
+        self.sidebarLayout.addWidget(self.peripheralBlurKernalComboBox)
 
         # Peripheral Gaussian Sigma
         self.peripheralSigmaLabel = QLabel("Peripheral Gaussian Sigma")
@@ -229,20 +252,20 @@ class EyeballProject(QMainWindow):
         self.peripheralSigmaField.setValidator(self.floatValidator)
         self.peripheralSigmaField.setPlaceholderText("000.00")
 
-        sidebarLayout.addWidget(self.peripheralSigmaLabel)
-        sidebarLayout.addWidget(self.peripheralSigmaField)
+        self.sidebarLayout.addWidget(self.peripheralSigmaLabel)
+        self.sidebarLayout.addWidget(self.peripheralSigmaField)
 
         # Peripheral Grayscale
         self.peripheralGrayscaleToggle = QCheckBox("Peripheral Grayscale")
-        sidebarLayout.addWidget(self.peripheralGrayscaleToggle)
+        self.sidebarLayout.addWidget(self.peripheralGrayscaleToggle)
 
         # Retinal Warp
         self.retinalWarpToggle = QCheckBox("Retinal Warp")
-        sidebarLayout.addWidget(self.retinalWarpToggle)
+        self.sidebarLayout.addWidget(self.retinalWarpToggle)
 
         # Verbose
         self.verboseToggle = QCheckBox("Verbose")
-        sidebarLayout.addWidget(self.verboseToggle)
+        self.sidebarLayout.addWidget(self.verboseToggle)
 
         # Eye Type
         self.eyeTypeLabel = QLabel("Eye Type")
@@ -258,8 +281,8 @@ class EyeballProject(QMainWindow):
         eyeTypeLayout = QHBoxLayout()
         eyeTypeLayout.addWidget(self.eyeTypeSingleRadioButton)
         eyeTypeLayout.addWidget(self.eyeTypeDualRadioButton)
-        sidebarLayout.addWidget(self.eyeTypeLabel)
-        sidebarLayout.addLayout(eyeTypeLayout)
+        self.sidebarLayout.addWidget(self.eyeTypeLabel)
+        self.sidebarLayout.addLayout(eyeTypeLayout)
 
         # Fovea Type
         self.foveaTypeLabel = QLabel("Fovea Type")
@@ -275,12 +298,8 @@ class EyeballProject(QMainWindow):
         foveaTypeLayout = QHBoxLayout()
         foveaTypeLayout.addWidget(self.foveaTypeStaticRadioButton)
         foveaTypeLayout.addWidget(self.foveaTypeDynamicRadioButton)
-        sidebarLayout.addWidget(self.foveaTypeLabel)
-        sidebarLayout.addLayout(foveaTypeLayout)
-
-        # Add the sidebar to the middle layout
-        sidebarGroup.setLayout(sidebarLayout)
-        midLayout.addWidget(sidebarGroup, 1)
+        self.sidebarLayout.addWidget(self.foveaTypeLabel)
+        self.sidebarLayout.addLayout(foveaTypeLayout)
 
         # Adding middle layout to main layout
         layout.addLayout(midLayout)
@@ -305,13 +324,14 @@ class EyeballProject(QMainWindow):
         self.progressBar = QProgressBar()
         self.progressBar.minimum = 0
         self.progressBar.value = 40
-        bottomLayout.addWidget(self.progressBar)
+        bottomLayout.addWidget(self.progressBar, 1)
 
         self.bottomGroup.setLayout(bottomLayout)
         layout.addWidget(self.bottomGroup)
-
-        
         #endregion BottomLayout
+
+        #region Popup
+        # Popup to show completion of processing
 
 
     def selectDataset(self):
@@ -334,6 +354,7 @@ class EyeballProject(QMainWindow):
             self.inferImgSize()
             self.inputTab.setImagePath(folder=folderPath, images=self.imageFiles)
             self.btnRunModel.setEnabled(True)
+            self.btnRunModel.setStyleSheet("background-color: green")
             self.processedImages = None
 
             self.progressBar.setMaximum(self.imageCount)
@@ -368,6 +389,7 @@ class EyeballProject(QMainWindow):
 
     def runModel(self):
         # Process the images based on the selected parameters
+        self.loadingStateEnable()
         self.processedImages = self.create_memmap((len(self.imageFiles), self.img_h, self.img_w, self.img_c)) if self.processedImages is None else self.processedImages
         for i, fileName in enumerate(self.imageFiles):
             print(i, fileName)
@@ -384,10 +406,13 @@ class EyeballProject(QMainWindow):
             self.processedImages[i] = image
             self.progressBar.setValue(i+1)
         
+        self.loadingStateDisable()
         self.outputTab.setImages(images=self.processedImages)
         self.tabWidget.setTabEnabled(1, True)
         self.tabWidget.setCurrentIndex(1)
         self.btnSave.setEnabled(True)
+        self.btnSave.setStyleSheet("background-color: green")
+
 
     def saveImages(self):
         saveDir = QFileDialog.getExistingDirectory(
@@ -433,10 +458,25 @@ class EyeballProject(QMainWindow):
         """Creates a np memmap object to store and access large np arrays dynamically from disk. 
         Use this to hold the processed output images."""
         return np.memmap(filename=path, dtype=dtype, mode=mode, shape=size)
+    
+    # Loading State - Disable all buttons
+    def loadingStateEnable(self):
+        for i in range(self.sidebarLayout.count()):
+            widget = self.sidebarLayout.itemAt(i).widget()
+            if widget is not None:
+                self.sidebarLayout.itemAt(i).widget().setEnabled(False)
+    
+    # Loading State - Enable all buttons
+    def loadingStateDisable(self):
+        for i in range(self.sidebarLayout.count()):
+            widget = self.sidebarLayout.itemAt(i).widget()
+            if widget is not None:
+                self.sidebarLayout.itemAt(i).widget().setEnabled(True)
 
 def main():
     """EyeballProject's main function."""
     pyApp = QApplication([])
+    apply_stylesheet(pyApp, theme='dark_teal.xml')
     pyAppWindow = EyeballProject()
     pyAppWindow.show()
     sys.exit(pyApp.exec())

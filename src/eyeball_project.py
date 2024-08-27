@@ -1,4 +1,4 @@
-import sys
+import sys, os
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout,\
         QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea
@@ -8,6 +8,7 @@ from PIL import Image, ImageFilter
 from custom_components import QImagePreview
 import numpy as np 
 from qt_material import apply_stylesheet
+from ArtificialRetina import ArtificialRetina
 
 # Constants
 # WINDOW_HEIGHT = 1000
@@ -35,6 +36,8 @@ class EyeballProject(QMainWindow):
         
         self.init_UI()
         self.showMaximized()
+
+        self.retina = None
     
     def init_UI(self):
         """Initialises UI elements."""
@@ -235,6 +238,12 @@ class EyeballProject(QMainWindow):
         self.peripheralBlurKernalComboBox = QComboBox()
         self.peripheralBlurKernalComboBox.addItems(
             ["(3,3)", "(5,5)", "(7,7)", "(9,9)", "(11,11)", "(21,21)"])
+        self.peripheralBlurKernalComboBox.setItemData(0, (3, 3))
+        self.peripheralBlurKernalComboBox.setItemData(1, (5, 5))
+        self.peripheralBlurKernalComboBox.setItemData(2, (7, 7))
+        self.peripheralBlurKernalComboBox.setItemData(3, (9, 9))
+        self.peripheralBlurKernalComboBox.setItemData(4, (11, 11))
+        self.peripheralBlurKernalComboBox.setItemData(5, (21, 21))
         self.peripheralBlurKernalLabel.setEnabled(False)
         self.peripheralBlurKernalComboBox.setEnabled(False)
         self.sidebarLayout.addWidget(self.peripheralBlurKernalLabel)
@@ -363,7 +372,7 @@ class EyeballProject(QMainWindow):
     def inferImgSize(self):
         img = Image.open(QDir(self.folderPath).filePath(self.imageFiles[0]))
         self.img_w, self.img_h = img.size
-        self.img_c = len(img.getbands())
+        self.img_c = 3
         del img
 
     def applyColorFilter(self, image, color):
@@ -389,21 +398,36 @@ class EyeballProject(QMainWindow):
 
     def runModel(self):
         # Process the images based on the selected parameters
+        retina = ArtificialRetina(P = int(self.inputResolutionField.text()),
+                                  fovea_center = (int(self.foveaXField.text()),int(self.foveaYField.text()) ),
+                                  fovea_radius = self.foveaRadiusSlider.value(),
+                                  peripheral_active_cones = self.peripheralConeCellsSlider.value(),
+                                  fovea_active_rods = self.foveaRodCellsSlider.value(),
+                                  peripheral_gaussianBlur = self.peripheralBlurToggle.isChecked(),
+                                  peripheral_gaussianBlur_kernal = self.peripheralBlurKernalComboBox.currentData(),
+                                  peripheral_gaussianBlur_sigma = int(self.peripheralSigmaField.text()),
+                                  peripheral_grayscale = self.peripheralGrayscaleToggle.isChecked(),
+                                  retinal_warp = self.retinalWarpToggle.isChecked())
+        retina.display_info()
         self.loadingStateEnable()
-        self.processedImages = self.create_memmap((len(self.imageFiles), self.img_h, self.img_w, self.img_c)) if self.processedImages is None else self.processedImages
+        if self.processedImages is None or len(self.processedImages) == 0:
+            self.processedImages = self.create_memmap((len(self.imageFiles), retina.P, retina.P, 3)) 
+        else:
+            self.refresh_memmap((len(self.imageFiles), retina.P, retina.P, 3))
+        
         for i, fileName in enumerate(self.imageFiles):
             print(i, fileName)
-            image = Image.open(QDir(self.folderPath).filePath(fileName))
-            if self.bwRadioButton.isChecked():
-                image = image.convert("L")  # Convert to black and white
-            elif self.colorFilterComboBox.currentText() != "None":
-                image = self.applyColorFilter(
-                    image, self.colorFilterComboBox.currentText())
+            #image = Image.open(QDir(self.folderPath).filePath(fileName))
+            #if self.bwRadioButton.isChecked():
+            #    image = image.convert("L")  # Convert to black and white
+            #elif self.colorFilterComboBox.currentText() != "None":
+            #    image = self.applyColorFilter(
+            #        image, self.colorFilterComboBox.currentText())
 
-            if self.blurCheckBox.isChecked():
-                image = image.filter(ImageFilter.GaussianBlur(5))
+            #if self.blurCheckBox.isChecked():
+            #    image = image.filter(ImageFilter.GaussianBlur(5))
 
-            self.processedImages[i] = image
+            self.processedImages[i] = retina.apply(image_path=QDir(self.folderPath).filePath(fileName))
             self.progressBar.setValue(i+1)
         
         self.loadingStateDisable()
@@ -413,7 +437,6 @@ class EyeballProject(QMainWindow):
         self.btnSave.setEnabled(True)
         self.btnSave.setStyleSheet("background-color: green")
 
-
     def saveImages(self):
         saveDir = QFileDialog.getExistingDirectory(
             self, 'Select Directory to Save Images')
@@ -422,6 +445,19 @@ class EyeballProject(QMainWindow):
             for i,image in enumerate(self.processedImages):
                 Image.fromarray(image).save(QDir(saveDir).filePath(self.imageFiles[i]))
             print(f'Saved {len(self.processedImages)} images to {saveDir}')
+
+    def create_memmap(self, size, path='temp.mmap', dtype='uint8', mode='w+'):
+        """Creates a np memmap object to store and access large np arrays dynamically from disk. 
+        Use this to hold the processed output images."""
+        return np.memmap(filename=path, dtype=dtype, mode=mode, shape=size)
+    
+    def refresh_memmap(self, shape):
+        self.outputTab.clearThumbnails()
+        self.outputTab.clearImagePreview()
+        self.outputTab.images = None
+        if self.imageCount != len(self.processedImages) or shape[1] != self.processedImages.shape[1]:
+            self.processedImages.resize(shape)
+        return 
 
     # Sidebar Event Handlers
     # Define the slot to enable the slider and set its maximum value
@@ -453,11 +489,6 @@ class EyeballProject(QMainWindow):
         self.peripheralBlurKernalComboBox.setEnabled(is_enabled)
         self.peripheralSigmaLabel.setEnabled(is_enabled)
         self.peripheralSigmaField.setEnabled(is_enabled)
-
-    def create_memmap(self, size, path='temp.mmap', dtype='uint8', mode='w+'):
-        """Creates a np memmap object to store and access large np arrays dynamically from disk. 
-        Use this to hold the processed output images."""
-        return np.memmap(filename=path, dtype=dtype, mode=mode, shape=size)
     
     # Loading State - Disable all buttons
     def loadingStateEnable(self):

@@ -67,10 +67,7 @@ class QImagePreview(QWidget):
     
     def updateThumbnails(self):
         # Clear existing thumbnails
-        while self.thumbnailGrid.count():
-            child = self.thumbnailGrid.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        self.clearThumbnails()
         
         start = self.currentThumbnailPage * THUMBNAILS_PER_PAGE
         end = min(start + THUMBNAILS_PER_PAGE, self.imageCount)
@@ -133,5 +130,14 @@ class QImagePreview(QWidget):
 
     def np2qimage(self, img:np.array):
         h,w,c = img.shape
-        qimg = QImage(img.data, w, h, c*w, QImage.Format.Format_RGBA8888)
+        qimg = QImage(img.data, w, h, c*w, QImage.Format.Format_RGB888)
         return qimg
+    
+    def clearThumbnails(self):
+        while self.thumbnailGrid.count():
+            child = self.thumbnailGrid.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+    
+    def clearImagePreview(self):
+        self.imagePreviewLabel.clear()

@@ -10,12 +10,9 @@ https://github.com/dicarlolab/retinawarp/
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-import os
-import sys
 from skimage.transform import resize
-sys.path.append("/home/lpandey/retinawarp/")
 from retina.retina import warp_image
-from tqdm import tqdm
+
 
 class ArtificialRetina:
     '''
@@ -37,7 +34,7 @@ class ArtificialRetina:
     
     '''
     def __init__(self,
-                 image=None,
+                 #image=None,
                  P=0,
                  fovea_center=0,
                  fovea_radius=0,
@@ -54,7 +51,7 @@ class ArtificialRetina:
                  save_output=False,
                  output_dir=None,
                 ):
-        self.image = image
+        #self.image = image
         self.P = P
         self.fovea_center = fovea_center
         self.fovea_radius = fovea_radius
@@ -72,11 +69,55 @@ class ArtificialRetina:
         self.output_dir = output_dir
 
         # check for errors
-        self.checks()
+        #self.checks()
         
         # open and pre-process RGB image
-        self.preprocessed_image = self.preprocess()
+        # self.preprocessed_image = self.preprocess()
 
+        # # display selected settings
+        # if self.verbose:
+        #     self.display_info()
+
+        # # create retina_filter and generate parts of the retina
+        # self.filter_canvas, self.fovea, self.peripheral_mask = self.create_retina_filter()
+        # # apply retinal filter on image
+        # self.retina_image = self.apply_retina_filter()
+
+        # # activate cones and rods in peripheral and fovea respectively
+        # # randomly select x% of pixels in the fovea and make them grayscale
+        # self.fovea_selected_indices = self.__select_random_pixels(
+        #     percentage=self.fovea_active_rods, 
+        #     mask=self.fovea)
+
+        # self.__apply_random_pixel_effect(
+        #     retina_image=self.retina_image, 
+        #     selected_indices=self.fovea_selected_indices, effect='grayscale')
+
+        # if self.verbose:
+        #     print("[INFO] {}% rods turned active in the fovea".format(self.fovea_active_rods))
+
+        # # randomly select y% of pixels in the peripheral and remove grayscale effect
+        # self.peripheral_selected_indices = self.__select_random_pixels(
+        #     percentage=self.peripheral_active_cones, 
+        #     mask=self.peripheral_mask)
+
+        # self.__apply_random_pixel_effect(
+        #     retina_image=self.retina_image, 
+        #     selected_indices=self.peripheral_selected_indices, effect='color')
+
+        # if self.verbose:
+        #     print("[INFO] {}% cones turned active in the peripheral".format(self.peripheral_active_cones))
+
+        # if self.retinal_warp == True:
+        #     self.ret_warp = self.apply_retinalWarp()
+        
+        # # display the output image from the artificial retina
+        # if self.display_output:
+        #     self.output_image()
+
+    def apply(self, image_path: str) -> np.array:
+        preprocessed_image = self.preprocess(image_path)
+        
         # display selected settings
         if self.verbose:
             self.display_info()
@@ -84,16 +125,16 @@ class ArtificialRetina:
         # create retina_filter and generate parts of the retina
         self.filter_canvas, self.fovea, self.peripheral_mask = self.create_retina_filter()
         # apply retinal filter on image
-        self.retina_image = self.apply_retina_filter()
+        retina_image = self.apply_retina_filter(preprocessed_image)
 
         # activate cones and rods in peripheral and fovea respectively
         # randomly select x% of pixels in the fovea and make them grayscale
         self.fovea_selected_indices = self.__select_random_pixels(
             percentage=self.fovea_active_rods, 
             mask=self.fovea)
-
+        
         self.__apply_random_pixel_effect(
-            retina_image=self.retina_image, 
+            retina_image=retina_image, original_image=preprocessed_image,
             selected_indices=self.fovea_selected_indices, effect='grayscale')
 
         if self.verbose:
@@ -103,26 +144,23 @@ class ArtificialRetina:
         self.peripheral_selected_indices = self.__select_random_pixels(
             percentage=self.peripheral_active_cones, 
             mask=self.peripheral_mask)
-
+        
         self.__apply_random_pixel_effect(
-            retina_image=self.retina_image, 
+            retina_image=retina_image, original_image=preprocessed_image,
             selected_indices=self.peripheral_selected_indices, effect='color')
-
+        
         if self.verbose:
             print("[INFO] {}% cones turned active in the peripheral".format(self.peripheral_active_cones))
 
         if self.retinal_warp == True:
-            self.ret_warp = self.apply_retinalWarp()
-        
-        # display the output image from the artificial retina
-        if self.display_output:
-            self.output_image()
-
+            retina_image = self.apply_retinalWarp(retina_image)
+         
+        return retina_image
 
     # check if all the variables are properly assigned
     def checks(self,):
-        if self.image is None and self.video is None:
-            raise ValueError("Image or video must be provided as input.")
+        #if self.image is None and self.video is None:
+        #    raise ValueError("Image or video must be provided as input.")
         if self.fovea_radius <= 0:
             raise ValueError("Fovea radius must be greater than 0.")
         if self.output_dir is not None and not isinstance(self.output_dir, str):
@@ -131,8 +169,8 @@ class ArtificialRetina:
             raise ValueError("Output dir not specified.")
 
     # pre-process the raw RGB image before mapping on the retina filter
-    def preprocess(self,):
-        image = cv2.imread(self.image)
+    def preprocess(self, image_path: str = None):
+        image = cv2.imread(image_path)
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # Resize the image to match the filter size (PxP)
         preprocessed_image = cv2.resize(image_rgb, (self.P, self.P))
@@ -193,7 +231,7 @@ class ArtificialRetina:
         return filter_canvas, fovea, peripheral_mask
 
     
-    def apply_retina_filter(self,):
+    def apply_retina_filter(self, image: np.array):
         '''
         method 1 (in version 0.1)
         the gaussian blur operation is only applied to the peripheral region and the fovea
@@ -235,10 +273,10 @@ class ArtificialRetina:
         only the peripheral region is swapped in the original image. This creates a smooth 
         transition between the fovea and the peripheral region.
         '''
-        sample = self.preprocessed_image.copy()
+        sample = image.copy()
         # apply Gaussian blur to the entire image
         if self.peripheral_gaussianBlur == True:
-            sample = cv2.GaussianBlur(self.preprocessed_image, self.peripheral_gaussianBlur_kernal, self.peripheral_gaussianBlur_sigma, borderType=cv2.BORDER_DEFAULT)
+            sample = cv2.GaussianBlur(image, self.peripheral_gaussianBlur_kernal, self.peripheral_gaussianBlur_sigma, borderType=cv2.BORDER_DEFAULT)
         
         # Convert the blurred image to grayscale
         if self.peripheral_grayscale == True:
@@ -247,7 +285,7 @@ class ArtificialRetina:
             sample = cv2.merge([sample_gray, sample_gray, sample_gray])
             
         # Combine the fovea region from the original image with the grayscale blurred peripheral region
-        combined_image = self.preprocessed_image.copy()
+        combined_image = image.copy()
         combined_image[self.peripheral_mask == 255] = sample[self.peripheral_mask == 255]
 
         if self.verbose:
@@ -270,19 +308,19 @@ class ArtificialRetina:
         return selected_indices
 
     # private function to activate rods and cones at specified coordinates
-    def __apply_random_pixel_effect(self, retina_image, selected_indices, effect):
+    def __apply_random_pixel_effect(self, retina_image, original_image, selected_indices, effect):
         # apply the specified effect to the randomly selected pixels
         for y, x in selected_indices:
             if effect == 'grayscale':
                 retina_image[y, x] = np.mean(retina_image[y, x])
             elif effect == 'color':
-                retina_image[y, x] = self.preprocessed_image[y, x]
+                retina_image[y, x] = original_image[y, x]
             else:
                 raise ValueError("Unsupported effect type. Supported types are 'grayscale' and 'color'.")
     
-    def apply_retinalWarp(self,):
+    def apply_retinalWarp(self, image):
         RESIZE_SCALE = 1.2
-        img = resize(self.retina_image, np.array(RESIZE_SCALE * np.array(self.retina_image.shape[:2]), dtype=int))
+        img = resize(image, np.array(RESIZE_SCALE * np.array(image.shape[:2]), dtype=int))
         ret_img = warp_image(img, output_size=320, input_size=320)
         return ret_img
             
@@ -310,26 +348,28 @@ class ArtificialRetina:
 
 
 
-# DRIVER CODE - 
-P = 224
-center = (P // 2, P // 2)  # Center of the fovea region
+if __name__ == "__main__":
 
-# creating instance - 
-retina = ArtificialRetina(
-         image='/data/lpandey/80Ksamples_224res/ForkFast/AgentRecorder/output_100.png',
-         P=P,
-         fovea_center=center,
-         fovea_radius=40,
-         peripheral_active_cones=0,
-         fovea_active_rods=0,
-         peripheral_gaussianBlur=True,
-         peripheral_gaussianBlur_kernal=(21,21),
-         peripheral_gaussianBlur_sigma=100,
-         peripheral_grayscale=False,
-         retinal_warp=False,
-         verbose=True,
-         display_output=True,
-         video=None,
-         save_output=False,
-         output_dir=None,
-)
+    # DRIVER CODE - 
+    P = 224
+    center = (P // 2, P // 2)  # Center of the fovea region
+
+    # creating instance - 
+    retina = ArtificialRetina(
+            image='/data/lpandey/80Ksamples_224res/ForkFast/AgentRecorder/output_100.png',
+            P=P,
+            fovea_center=center,
+            fovea_radius=40,
+            peripheral_active_cones=0,
+            fovea_active_rods=0,
+            peripheral_gaussianBlur=True,
+            peripheral_gaussianBlur_kernal=(21,21),
+            peripheral_gaussianBlur_sigma=100,
+            peripheral_grayscale=False,
+            retinal_warp=False,
+            verbose=True,
+            display_output=True,
+            video=None,
+            save_output=False,
+            output_dir=None,
+    )

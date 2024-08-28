@@ -9,6 +9,7 @@ from custom_components import QImagePreview
 import numpy as np 
 from qt_material import apply_stylesheet
 from ArtificialRetina import ArtificialRetina
+import validations
 
 # Constants
 # WINDOW_HEIGHT = 1000
@@ -30,10 +31,6 @@ class EyeballProject(QMainWindow):
         self.currentThumbnailPage = 0
         self.processedImages = None
 
-        self.img_h = 0
-        self.img_w = 0
-        self.img_c = 0
-        
         self.init_UI()
         self.showMaximized()
 
@@ -360,7 +357,6 @@ class EyeballProject(QMainWindow):
             
 
             self.folderPath = folderPath
-            self.inferImgSize()
             self.inputTab.setImagePath(folder=folderPath, images=self.imageFiles)
             self.btnRunModel.setEnabled(True)
             self.btnRunModel.setStyleSheet("background-color: green")
@@ -368,12 +364,6 @@ class EyeballProject(QMainWindow):
 
             self.progressBar.setMaximum(self.imageCount)
         #self.showMaximized()
-            
-    def inferImgSize(self):
-        img = Image.open(QDir(self.folderPath).filePath(self.imageFiles[0]))
-        self.img_w, self.img_h = img.size
-        self.img_c = 3
-        del img
 
     def applyColorFilter(self, image, color):
         # Apply color filter to the image
@@ -397,45 +387,67 @@ class EyeballProject(QMainWindow):
 
 
     def runModel(self):
-        # Process the images based on the selected parameters
-        retina = ArtificialRetina(P = int(self.inputResolutionField.text()),
-                                  fovea_center = (int(self.foveaXField.text()),int(self.foveaYField.text()) ),
-                                  fovea_radius = self.foveaRadiusSlider.value(),
-                                  peripheral_active_cones = self.peripheralConeCellsSlider.value(),
-                                  fovea_active_rods = self.foveaRodCellsSlider.value(),
-                                  peripheral_gaussianBlur = self.peripheralBlurToggle.isChecked(),
-                                  peripheral_gaussianBlur_kernal = self.peripheralBlurKernalComboBox.currentData(),
-                                  peripheral_gaussianBlur_sigma = int(self.peripheralSigmaField.text()),
-                                  peripheral_grayscale = self.peripheralGrayscaleToggle.isChecked(),
-                                  retinal_warp = self.retinalWarpToggle.isChecked())
-        retina.display_info()
-        self.loadingStateEnable()
-        if self.processedImages is None or len(self.processedImages) == 0:
-            self.processedImages = self.create_memmap((len(self.imageFiles), retina.P, retina.P, 3)) 
-        else:
-            self.refresh_memmap((len(self.imageFiles), retina.P, retina.P, 3))
-        
-        for i, fileName in enumerate(self.imageFiles):
-            print(i, fileName)
-            #image = Image.open(QDir(self.folderPath).filePath(fileName))
-            #if self.bwRadioButton.isChecked():
-            #    image = image.convert("L")  # Convert to black and white
-            #elif self.colorFilterComboBox.currentText() != "None":
-            #    image = self.applyColorFilter(
-            #        image, self.colorFilterComboBox.currentText())
+        try:
+            resolution = self.inputResolutionField.text()
+            if validations.isInt(resolution, "Resolution"):
+                resolution = int(resolution)
 
-            #if self.blurCheckBox.isChecked():
-            #    image = image.filter(ImageFilter.GaussianBlur(5))
+            fov_x, fov_y = self.foveaXField.text() ,self.foveaYField.text()
+            if validations.isInt(fov_x, "Fovea X") and validations.isInt(fov_y, "Fovea Y"):
+                fov_x, fov_y = int(self.foveaXField.text()) , int(self.foveaYField.text())
+            fovea_center = (fov_x, fov_y)
 
-            self.processedImages[i] = retina.apply(image_path=QDir(self.folderPath).filePath(fileName))
-            self.progressBar.setValue(i+1)
-        
-        self.loadingStateDisable()
-        self.outputTab.setImages(images=self.processedImages)
-        self.tabWidget.setTabEnabled(1, True)
-        self.tabWidget.setCurrentIndex(1)
-        self.btnSave.setEnabled(True)
-        self.btnSave.setStyleSheet("background-color: green")
+            fovea_radius = self.foveaRadiusSlider.value()
+
+            peripheral_active_cones = self.peripheralConeCellsSlider.value()
+
+            fovea_active_rods = self.foveaRodCellsSlider.value()
+
+            peripheral_gaussianBlur = self.peripheralBlurToggle.isChecked()
+            
+            if peripheral_gaussianBlur:
+                peripheral_gaussianBlur_kernal = self.peripheralBlurKernalComboBox.currentData()
+                peripheral_gaussianBlur_sigma = int(self.peripheralSigmaField.text()) if validations.isInt(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
+            else:
+                peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma = None, None
+            
+            peripheral_grayscale = self.peripheralGrayscaleToggle.isChecked()
+            
+            retinal_warp = self.retinalWarpToggle.isChecked()
+
+            # Process the images based on the selected parameters
+            retina = ArtificialRetina(P = resolution,
+                                    fovea_center = fovea_center,
+                                    fovea_radius = fovea_radius,
+                                    peripheral_active_cones = peripheral_active_cones,
+                                    fovea_active_rods = fovea_active_rods,
+                                    peripheral_gaussianBlur = peripheral_gaussianBlur,
+                                    peripheral_gaussianBlur_kernal = peripheral_gaussianBlur_kernal,
+                                    peripheral_gaussianBlur_sigma = peripheral_gaussianBlur_sigma,
+                                    peripheral_grayscale = peripheral_grayscale,
+                                    retinal_warp = retinal_warp)
+            retina.display_info()
+            self.loadingStateEnable()
+            if self.processedImages is None or len(self.processedImages) == 0:
+                self.processedImages = self.create_memmap((len(self.imageFiles), retina.P, retina.P, 3)) 
+            else:
+                self.refresh_memmap((len(self.imageFiles), retina.P, retina.P, 3))
+            
+            for i, fileName in enumerate(self.imageFiles):
+                print(f"{i}/{self.imageCount}, {fileName}")
+                self.processedImages[i] = retina.apply(image_path=QDir(self.folderPath).filePath(fileName))
+                self.progressBar.setValue(i+1)
+            
+            self.loadingStateDisable()
+            self.outputTab.setImages(images=self.processedImages)
+            self.tabWidget.setTabEnabled(1, True)
+            self.tabWidget.setCurrentIndex(1)
+            self.btnSave.setEnabled(True)
+            self.btnSave.setStyleSheet("background-color: green")
+        except validations.ValidationException as e:
+            print(f"Validation Failed: {str(e)}")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
 
     def saveImages(self):
         saveDir = QFileDialog.getExistingDirectory(

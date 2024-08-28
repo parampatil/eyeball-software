@@ -321,7 +321,7 @@ class ArtificialRetina:
     def apply_retinalWarp(self, image):
         RESIZE_SCALE = 1.2
         img = resize(image, np.array(RESIZE_SCALE * np.array(image.shape[:2]), dtype=int))
-        ret_img = warp_image(img, output_size=320, input_size=320)
+        ret_img = warp_image(img, output_size=self.P, input_size=self.P)
         return ret_img
             
     # plot/save the image

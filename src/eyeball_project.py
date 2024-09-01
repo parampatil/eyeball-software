@@ -124,27 +124,6 @@ class EyeballProject(QMainWindow):
         # Add the group box to your main layout (midLayout)
         midLayout.addWidget(sidebarGroup, 1)
 
-        self.radioLayout = QHBoxLayout()
-        self.modeLabel = QLabel("Mode")
-        self.sidebarLayout.addWidget(self.modeLabel)
-        self.bwRadioButton = QRadioButton("Black and White")
-        self.colorRadioButton = QRadioButton("Color")
-        self.colorRadioButton.setChecked(True)
-        self.radioLayout.addWidget(self.bwRadioButton)
-        self.radioLayout.addWidget(self.colorRadioButton)
-        self.sidebarLayout.addLayout(self.radioLayout)
-
-        self.colorFilterLabel = QLabel("Color Filter")
-        self.sidebarLayout.addWidget(self.colorFilterLabel)
-        self.colorFilterComboBox = QComboBox()
-        self.colorFilterComboBox.addItems(["None", "Red", "Green", "Blue"])
-        self.sidebarLayout.addWidget(self.colorFilterComboBox)
-
-        self.blurLabel = QLabel("Blur")
-        self.sidebarLayout.addWidget(self.blurLabel)
-        self.blurCheckBox = QCheckBox("Blur")
-        self.sidebarLayout.addWidget(self.blurCheckBox)
-
         # New Inputs in Sidebar
         # Input Resolution
         self.inputResolutionLabel = QLabel("Input Image Resolution (px)")
@@ -329,16 +308,13 @@ class EyeballProject(QMainWindow):
         # Progress Bar
         self.progressBar = QProgressBar()
         self.progressBar.minimum = 0
-        self.progressBar.value = 40
+        self.progressBar.setVisible(False)
         bottomLayout.addWidget(self.progressBar, 1)
+        self.progressBar.setStyleSheet("color: black")
 
         self.bottomGroup.setLayout(bottomLayout)
         layout.addWidget(self.bottomGroup)
         #endregion BottomLayout
-
-        #region Popup
-        # Popup to show completion of processing
-
 
     def selectDataset(self):
         folderPath = QFileDialog.getExistingDirectory(self, 'Select Folder Containing Images')
@@ -412,7 +388,7 @@ class EyeballProject(QMainWindow):
                 peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma = None, None
             
             peripheral_grayscale = self.peripheralGrayscaleToggle.isChecked()
-            
+
             retinal_warp = self.retinalWarpToggle.isChecked()
 
             # Process the images based on the selected parameters
@@ -425,7 +401,8 @@ class EyeballProject(QMainWindow):
                                     peripheral_gaussianBlur_kernal = peripheral_gaussianBlur_kernal,
                                     peripheral_gaussianBlur_sigma = peripheral_gaussianBlur_sigma,
                                     peripheral_grayscale = peripheral_grayscale,
-                                    retinal_warp = retinal_warp)
+                                    retinal_warp = retinal_warp,
+                                    verbose=self.verboseToggle.isChecked())
             retina.display_info()
             self.loadingStateEnable()
             if self.processedImages is None or len(self.processedImages) == 0:
@@ -504,6 +481,8 @@ class EyeballProject(QMainWindow):
     
     # Loading State - Disable all buttons
     def loadingStateEnable(self):
+        self.progressBar.reset()
+        self.progressBar.setVisible(True)
         for i in range(self.sidebarLayout.count()):
             widget = self.sidebarLayout.itemAt(i).widget()
             if widget is not None:
@@ -520,6 +499,7 @@ def main():
     """EyeballProject's main function."""
     pyApp = QApplication([])
     apply_stylesheet(pyApp, theme='dark_teal.xml')
+    pyApp.setStyleSheet(pyApp.styleSheet() + ("QLineEdit { color: white } QComboBox { color: white }"))
     pyAppWindow = EyeballProject()
     pyAppWindow.show()
     sys.exit(pyApp.exec())

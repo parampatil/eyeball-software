@@ -98,6 +98,8 @@ class QImagePreview(QWidget):
                 col = 0
                 row += 1
 
+            self.pageLabel.setText(f"Page {self.currentThumbnailPage+1}")
+
     def setInputPreviewImage(self, path=None, image=None):
         if path:
             pixmap = QPixmap(path)

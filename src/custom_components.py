@@ -1,7 +1,6 @@
-from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QScrollArea, QGridLayout, QHBoxLayout, QPushButton, QSizePolicy, QDialog
+from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QScrollArea, QGridLayout, QHBoxLayout, QPushButton, QSizePolicy, QDialog, QMessageBox
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import QDir, Qt
-from PIL import ImageQt, Image
 
 import numpy as np
 THUMBNAILS_PER_PAGE = 24

@@ -1,0 +1,16 @@
+{
+    "input_resolution": 224,
+    "fovea_x": 112,
+    "fovea_y": 112,
+    "fovea_radius": 20,
+    "peripheral_active_cones": 6,
+    "fovea_active_rods": 3,
+    "peripheral_gaussianBlur": true,
+    "peripheral_gaussianBlur_kernal": "(7,7)",
+    "peripheral_gaussianBlur_sigma": 1.5,
+    "peripheral_grayscale": true,
+    "retinal_warp": false,
+    "verbose": false,
+    "eye_type": "Single Eye",
+    "fovea_type": "Static"
+}

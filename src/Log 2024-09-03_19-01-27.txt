@@ -1,0 +1,26 @@
+
+        Image Information:
+        -----------------
+        Image size: 224x224
+        
+        Fovea Information:
+        ------------------
+        Fovea center: (112, 112)
+        Fovea radius: 20
+        Fovea active rods: 3%
+        
+        Peripheral Information:
+        -----------------------
+        Peripheral active cones: 6%
+        Peripheral Gaussian Blur: True
+        Peripheral Gaussian Blur kernel: (21, 21)
+        Peripheral Gaussian Blur sigma: 1.5
+        Peripheral Grayscale: True
+        
+        Additional Settings:
+        --------------------
+        Video input: False
+        Save output: False
+        Output directory: N/A
+        Retinal Warp: False
+        

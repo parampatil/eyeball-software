@@ -203,6 +203,32 @@ class ArtificialRetina:
         Output directory: {self.output_dir if self.save_output else 'N/A'}
         Retinal Warp: {self.retinal_warp}
         ''')
+        return (f'''
+        Image Information:
+        -----------------
+        Image size: {self.P}x{self.P}
+        
+        Fovea Information:
+        ------------------
+        Fovea center: {self.fovea_center}
+        Fovea radius: {self.fovea_radius}
+        Fovea active rods: {self.fovea_active_rods}%
+        
+        Peripheral Information:
+        -----------------------
+        Peripheral active cones: {self.peripheral_active_cones}%
+        Peripheral Gaussian Blur: {self.peripheral_gaussianBlur}
+        Peripheral Gaussian Blur kernel: {self.peripheral_gaussianBlur_kernal}
+        Peripheral Gaussian Blur sigma: {self.peripheral_gaussianBlur_sigma}
+        Peripheral Grayscale: {self.peripheral_grayscale}
+        
+        Additional Settings:
+        --------------------
+        Video input: {self.video is not None}
+        Save output: {self.save_output}
+        Output directory: {self.output_dir if self.save_output else 'N/A'}
+        Retinal Warp: {self.retinal_warp}
+        ''')
     
     def create_retina_filter(self,):
         # create an empty 3D filter canvas of shape (PxPX3)

@@ -1,5 +1,3 @@
-from PyQt6.QtWidgets import QMessageBox
-
 class ValidationException(Exception):
      # Constructor or Initializer
     def __init__(self, value):
@@ -11,13 +9,13 @@ class ValidationException(Exception):
 
 def isNotEmpty(s: str, param_name: str):
     if s is None or s.strip() == "":
-        alert(f"{param_name} is empty or None.", "Error")
+        #alert(f"{param_name} is empty or None.", "Error")
         raise ValidationException(f"{param_name} is empty or None.")
     return True
 
 def isInt(s: str, param_name: str):
     if isNotEmpty(s, param_name) and not s.isdigit():
-        alert("Invalid value for {param_name}.", "Error")
+        #alert("Invalid value for {param_name}.", "Error")
         raise ValidationException(f"{param_name} is not an integer value.")
     return True
 
@@ -26,21 +24,6 @@ def isFloat(s: str, param_name: str):
         try:
             float(s)
         except ValueError:
-            alert("Invalid value for {param_name}.", "Error")
+            #alert("Invalid value for {param_name}.", "Error")
             raise ValidationException(f"{param_name} is not a float value.")
     return True
-
-# Aletr Message Box
-def alert(message:str, title:str="Alert"):
-    msg = QMessageBox()
-    if title == "Error" or title == "Alert":
-        msg.setIcon(QMessageBox.Icon.Critical)
-    elif title == "Warning":
-        msg.setIcon(QMessageBox.Icon.Warning)
-    else:
-        msg.setIcon(QMessageBox.Icon.Information)
-    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-    msg.setMinimumWidth(200)
-    msg.setWindowTitle(title)
-    msg.setText(message)
-    msg.exec()

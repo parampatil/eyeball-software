@@ -1,7 +1,7 @@
 import sys, json, datetime
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout,\
-        QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip
+        QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip, QMessageBox
 from PyQt6.QtGui import QIntValidator, QDoubleValidator, QFont, QIcon
 from PyQt6.QtCore import QDir, Qt
 from PIL import Image
@@ -349,7 +349,7 @@ class EyeballProject(QMainWindow):
 
             self.imageCountLabel.setWordWrap(True)
             self.imageCountLabel.setText(f'Path: {folderPath}, Images found: {self.imageCount}')
-            validations.alert(f'Path: {folderPath}, Images found: {self.imageCount}', "Information")
+            self.alert(f'Path: {folderPath}, Images found: {self.imageCount}', "Information")
             
 
             self.folderPath = folderPath
@@ -423,13 +423,13 @@ class EyeballProject(QMainWindow):
             self.tabWidget.setTabEnabled(1, True)
             self.tabWidget.setCurrentIndex(1)
             self.btnSave.setEnabled(True)
-            validations.alert("Model run successfully.", "Information")
+            self.alert("Model run successfully.", "Information")
             self.btnSave.setStyleSheet("background-color: green")
         except validations.ValidationException as e:
-            validations.alert(f"Validation Failed: {str(e)}", "Error")
+            self.alert(f"Validation Failed: {str(e)}", "Error")
             print(f"Validation Failed: {str(e)}")
         except Exception as e:
-            validations.alert(f"An error occurred: {str(e)}", "Error")
+            self.alert(f"An error occurred: {str(e)}", "Error")
             print(f"An error occurred: {str(e)}")
 
     def saveImages(self):
@@ -439,7 +439,7 @@ class EyeballProject(QMainWindow):
             self.saveDirLabel.setText(f'Save directory: {saveDir}')
             for i,image in enumerate(self.processedImages):
                 Image.fromarray(image).save(QDir(saveDir).filePath(self.imageFiles[i]))
-            validations.alert(f"Saved {len(self.processedImages)} images to {saveDir}", "Information")
+            self.alert(f"Saved {len(self.processedImages)} images to {saveDir}", "Information")
             print(f'Saved {len(self.processedImages)} images to {saveDir}')
 
     def create_memmap(self, size, path='temp.mmap', dtype='uint8', mode='w+'):
@@ -452,7 +452,9 @@ class EyeballProject(QMainWindow):
         self.outputTab.clearImagePreview()
         self.outputTab.images = None
         if self.imageCount != len(self.processedImages) or shape[1] != self.processedImages.shape[1]:
-            self.processedImages.resize(shape)
+            self.processedImages = None
+            self.processedImages = self.create_memmap(shape) 
+            #self.processedImages.resize(shape)
         return
 
     def load_config(self):
@@ -479,12 +481,13 @@ class EyeballProject(QMainWindow):
                     self.eyeTypeDualRadioButton.setChecked(data['eye_type'] == "Dual Eye")
                     self.foveaTypeStaticRadioButton.setChecked(data['fovea_type'] == "Static")
                     self.foveaTypeDynamicRadioButton.setChecked(data['fovea_type'] == "Dynamic")
+
+                    print("Config Data loaded.")
             except Exception as e:
-                validations.alert(f"An error occurred: {str(e)}", "Error")
+                self.alert(f"An error occurred: {str(e)}", "Error")
                 print(f"An error occurred: {str(e)}")
-            print("Config Data loaded.")
         else:
-            validations.alert("No file path selected.", "Error")
+            self.alert("No file path selected.", "Error")
             print("No file path selected.")
     
     def save_config(self):
@@ -511,13 +514,13 @@ class EyeballProject(QMainWindow):
                 }
                 with open(filePath, 'w') as file:
                     json.dump(data, file, indent=4)
-                validations.alert(f"Config saved at {filePath}", "Information")
+                self.alert(f"Config saved at {filePath}", "Information")
             except Exception as e:
-                validations.alert(f"An error occurred: {str(e)}", "Error")
+                self.alert(f"An error occurred: {str(e)}", "Error")
                 print(f"An error occurred: {str(e)}")
             print("Data saved.")
         else:
-            validations.alert("No file path selected.", "Error")
+            self.alert("No file path selected.", "Error")
             print("No file path selected.")
 
     # Sidebar Event Handlers
@@ -566,6 +569,21 @@ class EyeballProject(QMainWindow):
             widget = self.sidebarLayout.itemAt(i).widget()
             if widget is not None:
                 self.sidebarLayout.itemAt(i).widget().setEnabled(True)
+
+    # Aletr Message Box
+    def alert(self, message:str, title:str="Information"):
+        msg = QMessageBox()
+        if title == "Error":
+            msg.setIcon(QMessageBox.Icon.Critical)
+        elif title == "Warning":
+            msg.setIcon(QMessageBox.Icon.Warning)
+        else:
+            msg.setIcon(QMessageBox.Icon.Information)
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg.setMinimumWidth(200)
+        msg.setWindowTitle(title)
+        msg.setText(message)
+        msg.exec()
 
 def main():
     """EyeballProject's main function."""

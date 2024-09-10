@@ -119,8 +119,8 @@ class ArtificialRetina:
         preprocessed_image = self.preprocess(image_path)
         
         # display selected settings
-        if self.verbose:
-            self.display_info()
+        # if self.verbose:
+        #     self.display_info()
 
         # create retina_filter and generate parts of the retina
         self.filter_canvas, self.fovea, self.peripheral_mask = self.create_retina_filter()
@@ -177,7 +177,7 @@ class ArtificialRetina:
         return preprocessed_image
         
     def display_info(self):
-        print(f'''
+        info = f'''
         Image Information:
         -----------------
         Image size: {self.P}x{self.P}
@@ -202,33 +202,8 @@ class ArtificialRetina:
         Save output: {self.save_output}
         Output directory: {self.output_dir if self.save_output else 'N/A'}
         Retinal Warp: {self.retinal_warp}
-        ''')
-        return (f'''
-        Image Information:
-        -----------------
-        Image size: {self.P}x{self.P}
-        
-        Fovea Information:
-        ------------------
-        Fovea center: {self.fovea_center}
-        Fovea radius: {self.fovea_radius}
-        Fovea active rods: {self.fovea_active_rods}%
-        
-        Peripheral Information:
-        -----------------------
-        Peripheral active cones: {self.peripheral_active_cones}%
-        Peripheral Gaussian Blur: {self.peripheral_gaussianBlur}
-        Peripheral Gaussian Blur kernel: {self.peripheral_gaussianBlur_kernal}
-        Peripheral Gaussian Blur sigma: {self.peripheral_gaussianBlur_sigma}
-        Peripheral Grayscale: {self.peripheral_grayscale}
-        
-        Additional Settings:
-        --------------------
-        Video input: {self.video is not None}
-        Save output: {self.save_output}
-        Output directory: {self.output_dir if self.save_output else 'N/A'}
-        Retinal Warp: {self.retinal_warp}
-        ''')
+        '''
+        print(info)
     
     def create_retina_filter(self,):
         # create an empty 3D filter canvas of shape (PxPX3)

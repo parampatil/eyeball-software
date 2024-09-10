@@ -1,14 +1,19 @@
-import sys, json, datetime
+import sys
+import json
+import datetime
+import os
+import traceback
 
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout,\
-        QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip, QMessageBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout, \
+    QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip, QMessageBox
 from PyQt6.QtGui import QIntValidator, QDoubleValidator, QFont, QIcon
 from PyQt6.QtCore import QDir, Qt
 from PIL import Image
 from custom_components import QImagePreview
-import numpy as np 
+import numpy as np
 from qt_material import apply_stylesheet
 from ArtificialRetina import ArtificialRetina
+from ImageProcessingWorker import ImageProcessingWorker
 import validations
 
 class EyeballProject(QMainWindow):
@@ -28,7 +33,7 @@ class EyeballProject(QMainWindow):
         self.showMaximized()
 
         self.retina = None
-    
+
     def init_UI(self):
         """Initialises UI elements."""
         self.setWindowTitle("Eyeball Project")
@@ -38,42 +43,43 @@ class EyeballProject(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
-        
-        #region TopLayout
+
+        # region TopLayout
         # Top Layout - houses the folder selector
         self.topGroup = QGroupBox("Load Dataset")
         topLayout = QHBoxLayout()
 
         # Button to load images
         self.btnLoad = QPushButton('Load Images')
-        self.btnLoad.setToolTip("Select a folder containing images to process.")
+        self.btnLoad.setToolTip(
+            "Select a folder containing images to process.")
         self.btnLoad.clicked.connect(self.selectDataset)
-        topLayout.addWidget(self.btnLoad,1)
+        topLayout.addWidget(self.btnLoad, 1)
 
         # Label to display number of images
         self.imageCountLabel = QLabel('No images selected')
-        topLayout.addWidget(self.imageCountLabel,2)
+        topLayout.addWidget(self.imageCountLabel, 2)
 
         # Button to run model
         self.btnRunModel = QPushButton('Run Model')
         self.btnRunModel.setToolTip("Run the model on the selected images.")
         self.btnRunModel.clicked.connect(self.runModel)
         self.btnRunModel.setEnabled(False)
-        topLayout.addWidget(self.btnRunModel,1)
-        
+        topLayout.addWidget(self.btnRunModel, 1)
+
         # Adding top layout to main layout
         self.topGroup.setLayout(topLayout)
         layout.addWidget(self.topGroup)
-        #endregion TopLayout
+        # endregion TopLayout
 
-        #region MiddleLayout
+        # region MiddleLayout
         # Middle Layout - houses the image viewer and processing parameters
         midLayout = QHBoxLayout()
 
         imgViewerLayout = QVBoxLayout()
         imgViewerGroup = QGroupBox("Image Preview")
 
-        #region Tabs
+        # region Tabs
         self.tabWidget = QTabWidget()
         imgViewerLayout.addWidget(self.tabWidget)
 
@@ -84,14 +90,14 @@ class EyeballProject(QMainWindow):
         # Tab 2: Processed Images
         self.outputTab = QImagePreview()
         self.tabWidget.addTab(self.outputTab, "Processed Images")
-        self.tabWidget.setTabEnabled(1,False)
-        #endregion Tabs
-        
+        self.tabWidget.setTabEnabled(1, False)
+        # endregion Tabs
+
         imgViewerGroup.setLayout(imgViewerLayout)
-        midLayout.addWidget(imgViewerGroup,3)
-        
-        #region ModelParameters
-        
+        midLayout.addWidget(imgViewerGroup, 3)
+
+        # region ModelParameters
+
         # Create the scroll area for the sidebar
         self.sidebarLayoutWidgetScroll = QScrollArea()
 
@@ -132,21 +138,25 @@ class EyeballProject(QMainWindow):
 
         # Input Resolution
         self.inputResolutionLabel = QLabel("Input Image Resolution (px)")
-        self.inputResolutionLabel.setToolTip("Description:Set the resolution of the input images.\nDefault: 224\nMax: 10000")
+        self.inputResolutionLabel.setToolTip(
+            "Description:Set the resolution of the input images.\nDefault: 224\nMax: 10000")
         self.inputResolutionField = QLineEdit()
-        self.inputResolutionField.setPlaceholderText("Enter resolution in format: 224")
+        self.inputResolutionField.setPlaceholderText(
+            "Enter resolution in format: 224")
         self.intValidator_inputResolutionField = QIntValidator(0, 10000)
-        self.inputResolutionField.setValidator(self.intValidator_inputResolutionField)
+        self.inputResolutionField.setValidator(
+            self.intValidator_inputResolutionField)
         self.sidebarLayout.addWidget(self.inputResolutionLabel)
         self.sidebarLayout.addWidget(self.inputResolutionField)
 
         # Fovea Location X, Y
         self.foveaLocationLabel = QLabel("Fovea Location (x, y)")
-        self.foveaLocationLabel.setToolTip("Description: Set the x and y coordinates of the fovea.\nDefault: 112\nMax: 10000")
+        self.foveaLocationLabel.setToolTip(
+            "Description: Set the x and y coordinates of the fovea.\nDefault: 112\nMax: 10000")
         foveaLocationLayout = QHBoxLayout()
         self.foveaXField = QLineEdit()
         self.foveaXField.setPlaceholderText("Enter x coordinate")
-        self.intValidator_foveaXField = QIntValidator(0, 10000) 
+        self.intValidator_foveaXField = QIntValidator(0, 10000)
         self.foveaXField.setValidator(self.intValidator_foveaXField)
         self.foveaYField = QLineEdit()
         self.foveaYField.setPlaceholderText("Enter y coordinate")
@@ -161,7 +171,8 @@ class EyeballProject(QMainWindow):
 
         # Fovea Radius
         self.foveaRadiusLabel = QLabel("Fovea Radius")
-        self.foveaRadiusLabel.setToolTip("Description: Set the radius of the fovea.\nDefault: 1\nMax: 100")
+        self.foveaRadiusLabel.setToolTip(
+            "Description: Set the radius of the fovea.\nDefault: 1\nMax: 100")
         self.foveaRadiusSlider = QSlider(Qt.Orientation.Horizontal)
         self.foveaRadiusSlider.setRange(1, 100)  # Default range
         self.foveaRadiusSlider.setEnabled(False)  # Disable initially
@@ -180,11 +191,13 @@ class EyeballProject(QMainWindow):
 
         # Peripheral Active Cone Cells
         self.peripheralConeCellsLabel = QLabel("Peripheral Active Cone Cells")
-        self.peripheralConeCellsLabel.setToolTip("Description: Set the percentage of active cone cells in the peripheral region.\nDefault: 0%\nMax: 100%")
+        self.peripheralConeCellsLabel.setToolTip(
+            "Description: Set the percentage of active cone cells in the peripheral region.\nDefault: 0%\nMax: 100%")
         self.peripheralConeCellsSlider = QSlider(Qt.Orientation.Horizontal)
         self.peripheralConeCellsSlider.setRange(0, 100)
 
-        self.peripheralConeCellsValueLabel = QLabel("0%")  # Display slider value
+        self.peripheralConeCellsValueLabel = QLabel(
+            "0%")  # Display slider value
 
         # Layout for Peripheral Active Cone Cells slider and value label
         peripheralConeCellsLayout = QHBoxLayout()
@@ -196,7 +209,8 @@ class EyeballProject(QMainWindow):
 
         # Fovea Active Rod Cells
         self.foveaRodCellsLabel = QLabel("Fovea Active Rod Cells")
-        self.foveaRodCellsLabel.setToolTip("Description: Set the percentage of active rod cells in the fovea region.\nDefault: 0%\nMax: 100%")
+        self.foveaRodCellsLabel.setToolTip(
+            "Description: Set the percentage of active rod cells in the fovea region.\nDefault: 0%\nMax: 100%")
         self.foveaRodCellsSlider = QSlider(Qt.Orientation.Horizontal)
         self.foveaRodCellsSlider.setRange(0, 100)
 
@@ -211,18 +225,24 @@ class EyeballProject(QMainWindow):
         self.sidebarLayout.addLayout(foveaRodCellsLayout)
 
         # Connect signals to slots for updating the value labels
-        self.peripheralConeCellsSlider.valueChanged.connect(self.onPeripheralConeCellsChanged)
-        self.foveaRodCellsSlider.valueChanged.connect(self.onFoveaRodCellsChanged)
-                
+        self.peripheralConeCellsSlider.valueChanged.connect(
+            self.onPeripheralConeCellsChanged)
+        self.foveaRodCellsSlider.valueChanged.connect(
+            self.onFoveaRodCellsChanged)
+
         # Peripheral Gaussian Blur
         self.peripheralBlurToggle = QCheckBox("Peripheral Gaussian Blur")
-        self.peripheralBlurToggle.setToolTip("Description: Enable Gaussian blur in the peripheral region.")
-        self.peripheralBlurToggle.stateChanged.connect(self.onPeripheralBlurToggled)
+        self.peripheralBlurToggle.setToolTip(
+            "Description: Enable Gaussian blur in the peripheral region.")
+        self.peripheralBlurToggle.stateChanged.connect(
+            self.onPeripheralBlurToggled)
         self.sidebarLayout.addWidget(self.peripheralBlurToggle)
 
         # Peripheral Gaussian Blur Kernal
-        self.peripheralBlurKernalLabel = QLabel("Peripheral Gaussian Blur Kernal")
-        self.peripheralBlurKernalLabel.setToolTip("Description: Set the kernal size for the Gaussian blur in the peripheral region.\nDefault: (3,3)")
+        self.peripheralBlurKernalLabel = QLabel(
+            "Peripheral Gaussian Blur Kernal")
+        self.peripheralBlurKernalLabel.setToolTip(
+            "Description: Set the kernal size for the Gaussian blur in the peripheral region.\nDefault: (3,3)")
         self.peripheralBlurKernalComboBox = QComboBox()
         self.peripheralBlurKernalComboBox.addItems(
             ["(3,3)", "(5,5)", "(7,7)", "(9,9)", "(11,11)", "(21,21)"])
@@ -239,14 +259,16 @@ class EyeballProject(QMainWindow):
 
         # Peripheral Gaussian Sigma
         self.peripheralSigmaLabel = QLabel("Peripheral Gaussian Sigma")
-        self.peripheralSigmaLabel.setToolTip("Description: Set the sigma value for the Gaussian blur in the peripheral region.\nDefault: 0.0\nMax: 100.0")
+        self.peripheralSigmaLabel.setToolTip(
+            "Description: Set the sigma value for the Gaussian blur in the peripheral region.\nDefault: 0.0\nMax: 100.0")
         self.peripheralSigmaField = QLineEdit()
         self.peripheralSigmaLabel.setEnabled(False)
         self.peripheralSigmaField.setEnabled(False)
 
         # Set a validator to allow only float values in the Gaussian Sigma field
         self.floatValidator = QDoubleValidator(0.0, 100.0, 2)
-        self.floatValidator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        self.floatValidator.setNotation(
+            QDoubleValidator.Notation.StandardNotation)
         self.peripheralSigmaField.setValidator(self.floatValidator)
         self.peripheralSigmaField.setPlaceholderText("000.00")
 
@@ -255,22 +277,32 @@ class EyeballProject(QMainWindow):
 
         # Peripheral Grayscale
         self.peripheralGrayscaleToggle = QCheckBox("Peripheral Grayscale")
-        self.peripheralGrayscaleToggle.setToolTip("Description: Convert the peripheral region to grayscale.")
+        self.peripheralGrayscaleToggle.setToolTip(
+            "Description: Convert the peripheral region to grayscale.")
         self.sidebarLayout.addWidget(self.peripheralGrayscaleToggle)
 
         # Retinal Warp
         self.retinalWarpToggle = QCheckBox("Retinal Warp")
-        self.retinalWarpToggle.setToolTip("Description: Apply retinal warp to the processed images.")
+        self.retinalWarpToggle.setToolTip(
+            "Description: Apply retinal warp to the processed images.")
         self.sidebarLayout.addWidget(self.retinalWarpToggle)
 
         # Verbose
         self.verboseToggle = QCheckBox("Verbose")
-        self.verboseToggle.setToolTip("Description: Save the log of the model run.")
+        self.verboseToggle.setToolTip(
+            "Description: Save the log of the model run.")
         self.sidebarLayout.addWidget(self.verboseToggle)
+
+        # Multiprocessing Toggle
+        self.multiprocessingToggle = QCheckBox("Multiprocessing")
+        self.multiprocessingToggle.setToolTip(
+            "Description: Enable multiprocessing for faster processing.\nDefault: Disabled")
+        self.sidebarLayout.addWidget(self.multiprocessingToggle)
 
         # Eye Type
         self.eyeTypeLabel = QLabel("Eye Type")
-        self.eyeTypeLabel.setToolTip("Description: Select the type of eye to simulate.")
+        self.eyeTypeLabel.setToolTip(
+            "Description: Select the type of eye to simulate.")
         self.eyeTypeSingleRadioButton = QRadioButton("Single Eye")
         self.eyeTypeDualRadioButton = QRadioButton("Dual Eye")
         self.eyeTypeSingleRadioButton.setChecked(True)  # Default to Single Eye
@@ -288,7 +320,8 @@ class EyeballProject(QMainWindow):
 
         # Fovea Type
         self.foveaTypeLabel = QLabel("Fovea Type")
-        self.foveaTypeLabel.setToolTip("Description: Select the type of fovea to simulate.")
+        self.foveaTypeLabel.setToolTip(
+            "Description: Select the type of fovea to simulate.")
         self.foveaTypeStaticRadioButton = QRadioButton("Static")
         self.foveaTypeDynamicRadioButton = QRadioButton("Dynamic")
         self.foveaTypeStaticRadioButton.setChecked(True)  # Default to Static
@@ -306,9 +339,9 @@ class EyeballProject(QMainWindow):
 
         # Adding middle layout to main layout
         layout.addLayout(midLayout)
-        #endregion MiddleLayout
+        # endregion MiddleLayout
 
-        #region BottomLayout
+        # region BottomLayout
         # BottomLayer - Save options and progress bar
         self.bottomGroup = QGroupBox("Save Options")
         bottomLayout = QHBoxLayout()
@@ -324,112 +357,191 @@ class EyeballProject(QMainWindow):
         self.saveDirLabel = QLabel('No directory selected')
         bottomLayout.addWidget(self.saveDirLabel, 2)
 
+        # Progress Layout
+        self.progressLayout = QVBoxLayout()
+        self.progressLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        bottomLayout.addLayout(self.progressLayout, 1)
+
         # Progress Bar
         self.progressBar = QProgressBar()
         self.progressBar.minimum = 0
         self.progressBar.setVisible(False)
-        bottomLayout.addWidget(self.progressBar, 1)
+        self.progressLayout.addWidget(self.progressBar)
+        # bottomLayout.addWidget(self.progressBar, 1)
         self.progressBar.setStyleSheet("color: black")
+
+        # Estimated Time Remaining
+        self.estimatedTimeLabel = QLabel("")
+        self.progressLayout.addWidget(self.estimatedTimeLabel)
+        # bottomLayout.addWidget(self.estimatedTimeLabel, 1)
 
         self.bottomGroup.setLayout(bottomLayout)
         layout.addWidget(self.bottomGroup)
-        #endregion BottomLayout
+        # endregion BottomLayout
 
     def selectDataset(self):
-        folderPath = QFileDialog.getExistingDirectory(self, 'Select Folder Containing Images')
+        folderPath = QFileDialog.getExistingDirectory(
+            self, 'Select Folder Containing Images')
         if folderPath:
             dir = QDir(folderPath)
             dir.setNameFilters(["*.jpg", "*.jpeg", "*.png", "*.bmp"])
             self.imageFiles = dir.entryList()
             self.imageCount = len(self.imageFiles)
 
-            #TODO: handle exception
+            # TODO: handle exception
             if self.imageCount == 0:
                 raise ValueError(f"No Images Found in {folderPath}")
 
             self.imageCountLabel.setWordWrap(True)
-            self.imageCountLabel.setText(f'Path: {folderPath}, Images found: {self.imageCount}')
-            self.alert(f'Path: {folderPath}, Images found: {self.imageCount}', "Information")
-            
+            self.imageCountLabel.setText(
+                f'Path: {folderPath}, Images found: {self.imageCount}')
+            self.alert(f'Path: {folderPath}, Images found: {
+                       self.imageCount}', "Information")
 
             self.folderPath = folderPath
-            self.inputTab.setImagePath(folder=folderPath, images=self.imageFiles)
+            self.inputTab.setImagePath(
+                folder=folderPath, images=self.imageFiles)
             self.btnRunModel.setEnabled(True)
             self.btnRunModel.setStyleSheet("background-color: green")
-            self.processedImages = None
+            # self.processedImages = None
 
             self.progressBar.setMaximum(self.imageCount)
-        #self.showMaximized()
+        # self.showMaximized()
+
+    def colletUserInput(self):
+        # Validate & gather the input parameters
+        resolution = self.inputResolutionField.text()
+        if validations.isInt(resolution, "Resolution"):
+            resolution = int(resolution)
+
+        fov_x, fov_y = self.foveaXField.text(), self.foveaYField.text()
+        if validations.isInt(fov_x, "Fovea X") and validations.isInt(fov_y, "Fovea Y"):
+            fov_x, fov_y = int(self.foveaXField.text()), int(
+                self.foveaYField.text())
+        fovea_center = (fov_x, fov_y)
+
+        fovea_radius = self.foveaRadiusSlider.value()
+
+        peripheral_active_cones = self.peripheralConeCellsSlider.value()
+
+        fovea_active_rods = self.foveaRodCellsSlider.value()
+
+        peripheral_gaussianBlur = self.peripheralBlurToggle.isChecked()
+
+        if peripheral_gaussianBlur:
+            peripheral_gaussianBlur_kernal = self.peripheralBlurKernalComboBox.currentData()
+            peripheral_gaussianBlur_sigma = float(self.peripheralSigmaField.text(
+            )) if validations.isFloat(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
+        else:
+            peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma = None, None
+
+        peripheral_grayscale = self.peripheralGrayscaleToggle.isChecked()
+
+        retinal_warp = self.retinalWarpToggle.isChecked()
+
+        verbose = self.verboseToggle.isChecked()
+
+        return resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, retinal_warp, verbose
+
+    def save_log(self, userInput):
+        filename = f"Log {datetime.datetime.now().strftime(
+            '%Y-%m-%d_%H-%M-%S')}.txt"
+
+        info = f'''
+        Image Information:
+        -----------------
+        Image size: {userInput[0]}x{userInput[0]}
+
+        Fovea Information:
+        ------------------
+        Fovea center: {userInput[1]}
+        Fovea radius: {userInput[2]}
+        Peripheral active rods: {userInput[4]}%
+
+        Peripheral Information:
+        -----------------------
+        Peripheral active cones: {userInput[3]}%
+        Peripheral Gaussian Blur: {userInput[5]}
+        Peripheral Gaussian Blur Kernal: {userInput[6]}
+        Peripheral Gaussian Blur Sigma: {userInput[7]}
+        Peripheral Grayscale: {userInput[8]}
+
+        Additional Settings:
+        --------------------
+        Retinal Warp: {userInput[9]}
+        '''
+
+        with open(filename, "w") as file:
+            file.write(info)
+
+    def generate_retina_object(self, resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, retinal_warp, verbose):
+        # Process the images based on the selected parameters
+        retina = ArtificialRetina(P=resolution,
+                                  fovea_center=fovea_center,
+                                  fovea_radius=fovea_radius,
+                                  peripheral_active_cones=peripheral_active_cones,
+                                  fovea_active_rods=fovea_active_rods,
+                                  peripheral_gaussianBlur=peripheral_gaussianBlur,
+                                  peripheral_gaussianBlur_kernal=peripheral_gaussianBlur_kernal,
+                                  peripheral_gaussianBlur_sigma=peripheral_gaussianBlur_sigma,
+                                  peripheral_grayscale=peripheral_grayscale,
+                                  retinal_warp=retinal_warp,
+                                  verbose=verbose)
+        return retina
 
     def runModel(self):
+        self.loadingStateEnable()
         try:
-            resolution = self.inputResolutionField.text()
-            if validations.isInt(resolution, "Resolution"):
-                resolution = int(resolution)
+            userInput = [*self.colletUserInput()]
 
-            fov_x, fov_y = self.foveaXField.text() ,self.foveaYField.text()
-            if validations.isInt(fov_x, "Fovea X") and validations.isInt(fov_y, "Fovea Y"):
-                fov_x, fov_y = int(self.foveaXField.text()) , int(self.foveaYField.text())
-            fovea_center = (fov_x, fov_y)
-
-            fovea_radius = self.foveaRadiusSlider.value()
-
-            peripheral_active_cones = self.peripheralConeCellsSlider.value()
-
-            fovea_active_rods = self.foveaRodCellsSlider.value()
-
-            peripheral_gaussianBlur = self.peripheralBlurToggle.isChecked()
-            
-            if peripheral_gaussianBlur:
-                peripheral_gaussianBlur_kernal = self.peripheralBlurKernalComboBox.currentData()
-                peripheral_gaussianBlur_sigma = float(self.peripheralSigmaField.text()) if validations.isFloat(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
-            else:
-                peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma = None, None
-            
-            peripheral_grayscale = self.peripheralGrayscaleToggle.isChecked()
-
-            retinal_warp = self.retinalWarpToggle.isChecked()
-
-            # Process the images based on the selected parameters
-            retina = ArtificialRetina(P = resolution,
-                                    fovea_center = fovea_center,
-                                    fovea_radius = fovea_radius,
-                                    peripheral_active_cones = peripheral_active_cones,
-                                    fovea_active_rods = fovea_active_rods,
-                                    peripheral_gaussianBlur = peripheral_gaussianBlur,
-                                    peripheral_gaussianBlur_kernal = peripheral_gaussianBlur_kernal,
-                                    peripheral_gaussianBlur_sigma = peripheral_gaussianBlur_sigma,
-                                    peripheral_grayscale = peripheral_grayscale,
-                                    retinal_warp = retinal_warp,
-                                    verbose=self.verboseToggle.isChecked())
-            if self.verboseToggle.isChecked():
-                filename = f"Log {datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
-                with open(filename, "w") as file:
-                    file.write(retina.display_info())
-                    
-            self.loadingStateEnable()
+            # Initialize the memmap object to store the processed images
             if self.processedImages is None or len(self.processedImages) == 0:
-                self.processedImages = self.create_memmap((len(self.imageFiles), retina.P, retina.P, 3)) 
+                self.processedImages = self.create_memmap(
+                    # Running the model for the first time
+                    (len(self.imageFiles), userInput[0], userInput[0], 3))
             else:
-                self.refresh_memmap((len(self.imageFiles), retina.P, retina.P, 3))
+                # Rerun the model with new parameters
+                self.refresh_memmap(
+                    (len(self.imageFiles), userInput[0], userInput[0], 3))
             
-            for i, fileName in enumerate(self.imageFiles):
-                print(f"{i}/{self.imageCount}, {fileName}")
-                self.processedImages[i] = retina.apply(image_path=QDir(self.folderPath).filePath(fileName))
-                self.progressBar.setValue(i+1)
-            
-            self.loadingStateDisable()
-            self.outputTab.setImages(images=self.processedImages)
-            self.tabWidget.setTabEnabled(1, True)
-            self.tabWidget.setCurrentIndex(1)
-            self.btnSave.setEnabled(True)
-            self.alert("Model run successfully.", "Information")
-            self.btnSave.setStyleSheet("background-color: green")
+            # Report the estimated time
+            def estimate_time(est_time):
+                self.estimatedTimeLabel.setText(est_time)
+                
+            def processing_finished(processedImages):
+                # Handle completion of processing
+                self.processedImages = processedImages
+                 # Save the log if verbose is enabled
+                if self.verboseToggle.isChecked():
+                    self.save_log(userInput)
+
+                # end_time = datetime.datetime.now()
+                # print(f"Time taken: {end_time - start_time}")
+                self.loadingStateDisable()
+                self.outputTab.setImages(images=self.processedImages)
+                self.tabWidget.setTabEnabled(1, True)
+                self.tabWidget.setCurrentIndex(1)
+                self.btnSave.setEnabled(True)
+                self.alert("Model run successfully.", "Information")
+                self.btnSave.setStyleSheet("background-color: green")
+                del processedImages
+                
+                print("Processing finished")
+
+            # Create a worker thread to process the images
+            self.worker = ImageProcessingWorker(
+                userInput, self.folderPath, self.imageFiles, self.multiprocessingToggle.isChecked(), self.processedImages, self.generate_retina_object)
+            self.worker.progress.connect(self.progressBar.setValue)
+            self.worker.result.connect(processing_finished)
+            self.worker.estimated_time.connect(estimate_time)
+            self.worker.start()
+           
         except validations.ValidationException as e:
             self.alert(f"Validation Failed: {str(e)}", "Error")
             print(f"Validation Failed: {str(e)}")
         except Exception as e:
             self.alert(f"An error occurred: {str(e)}", "Error")
+            traceback.print_exc()
             print(f"An error occurred: {str(e)}")
 
     def saveImages(self):
@@ -437,8 +549,9 @@ class EyeballProject(QMainWindow):
             self, 'Select Directory to Save Images')
         if saveDir:
             self.saveDirLabel.setText(f'Save directory: {saveDir}')
-            for i,image in enumerate(self.processedImages):
-                Image.fromarray(image).save(QDir(saveDir).filePath(self.imageFiles[i]))
+            for i, image in enumerate(self.processedImages):
+                Image.fromarray(image).save(
+                    QDir(saveDir).filePath(self.imageFiles[i]))
             self.alert(f"Saved {len(self.processedImages)} images to {saveDir}", "Information")
             print(f'Saved {len(self.processedImages)} images to {saveDir}')
 
@@ -446,41 +559,53 @@ class EyeballProject(QMainWindow):
         """Creates a np memmap object to store and access large np arrays dynamically from disk. 
         Use this to hold the processed output images."""
         return np.memmap(filename=path, dtype=dtype, mode=mode, shape=size)
-    
+
     def refresh_memmap(self, shape):
         self.outputTab.clearThumbnails()
         self.outputTab.clearImagePreview()
         self.outputTab.images = None
         if self.imageCount != len(self.processedImages) or shape[1] != self.processedImages.shape[1]:
             self.processedImages = None
-            self.processedImages = self.create_memmap(shape) 
-            #self.processedImages.resize(shape)
+            self.processedImages = self.create_memmap(shape)
+            # self.processedImages.resize(shape)
         return
 
     def load_config(self):
         # Implement your data loading logic here
         print("Loading config data...")
-        filePath = QFileDialog.getOpenFileName(self, 'Open Config File', '', 'JSON Files (*.json)')[0]
+        filePath = QFileDialog.getOpenFileName(
+            self, 'Open Config File', '', 'JSON Files (*.json)')[0]
         if filePath:
             try:
                 with open(filePath, 'r') as file:
                     data = json.load(file)
-                    self.inputResolutionField.setText(str(data['input_resolution']))
+                    self.inputResolutionField.setText(
+                        str(data['input_resolution']))
                     self.foveaXField.setText(str(data['fovea_x']))
                     self.foveaYField.setText(str(data['fovea_y']))
                     self.foveaRadiusSlider.setValue(data['fovea_radius'])
-                    self.peripheralConeCellsSlider.setValue(data['peripheral_active_cones'])
-                    self.foveaRodCellsSlider.setValue(data['fovea_active_rods'])
-                    self.peripheralBlurToggle.setChecked(data['peripheral_gaussianBlur'])
-                    self.peripheralBlurKernalComboBox.setCurrentText(data['peripheral_gaussianBlur_kernal'])
-                    self.peripheralSigmaField.setText(str(data['peripheral_gaussianBlur_sigma']))
-                    self.peripheralGrayscaleToggle.setChecked(data['peripheral_grayscale'])
+                    self.peripheralConeCellsSlider.setValue(
+                        data['peripheral_active_cones'])
+                    self.foveaRodCellsSlider.setValue(
+                        data['fovea_active_rods'])
+                    self.peripheralBlurToggle.setChecked(
+                        data['peripheral_gaussianBlur'])
+                    self.peripheralBlurKernalComboBox.setCurrentText(
+                        data['peripheral_gaussianBlur_kernal'])
+                    self.peripheralSigmaField.setText(
+                        str(data['peripheral_gaussianBlur_sigma']))
+                    self.peripheralGrayscaleToggle.setChecked(
+                        data['peripheral_grayscale'])
                     self.retinalWarpToggle.setChecked(data['retinal_warp'])
                     self.verboseToggle.setChecked(data['verbose'])
-                    self.eyeTypeSingleRadioButton.setChecked(data['eye_type'] == "Single Eye")
-                    self.eyeTypeDualRadioButton.setChecked(data['eye_type'] == "Dual Eye")
-                    self.foveaTypeStaticRadioButton.setChecked(data['fovea_type'] == "Static")
-                    self.foveaTypeDynamicRadioButton.setChecked(data['fovea_type'] == "Dynamic")
+                    self.eyeTypeSingleRadioButton.setChecked(
+                        data['eye_type'] == "Single Eye")
+                    self.eyeTypeDualRadioButton.setChecked(
+                        data['eye_type'] == "Dual Eye")
+                    self.foveaTypeStaticRadioButton.setChecked(
+                        data['fovea_type'] == "Static")
+                    self.foveaTypeDynamicRadioButton.setChecked(
+                        data['fovea_type'] == "Dynamic")
 
                     print("Config Data loaded.")
             except Exception as e:
@@ -489,11 +614,12 @@ class EyeballProject(QMainWindow):
         else:
             self.alert("No file path selected.", "Error")
             print("No file path selected.")
-    
+
     def save_config(self):
         # Implement your data saving logic here
-        print("Saving data...") 
-        filePath = QFileDialog.getSaveFileName(self, 'Save Config File', '', 'JSON Files (*.json)')[0]
+        print("Saving data...")
+        filePath = QFileDialog.getSaveFileName(
+            self, 'Save Config File', '', 'JSON Files (*.json)')[0]
         if filePath:
             try:
                 data = {
@@ -532,7 +658,8 @@ class EyeballProject(QMainWindow):
             self.foveaRadiusSlider.setMaximum(resolution)
             self.foveaRadiusSlider.setEnabled(True)
         else:
-            self.foveaRadiusSlider.setEnabled(False)  # Disable if input is not valid
+            # Disable if input is not valid
+            self.foveaRadiusSlider.setEnabled(False)
 
     # Define the slot to update the slider value label
     def onFoveaRadiusChanged(self, value):
@@ -553,16 +680,17 @@ class EyeballProject(QMainWindow):
         self.peripheralBlurKernalComboBox.setEnabled(is_enabled)
         self.peripheralSigmaLabel.setEnabled(is_enabled)
         self.peripheralSigmaField.setEnabled(is_enabled)
-    
+
     # Loading State - Disable all buttons
     def loadingStateEnable(self):
+        self.btnSave.setEnabled(False)
         self.progressBar.reset()
         self.progressBar.setVisible(True)
         for i in range(self.sidebarLayout.count()):
             widget = self.sidebarLayout.itemAt(i).widget()
             if widget is not None:
                 self.sidebarLayout.itemAt(i).widget().setEnabled(False)
-    
+
     # Loading State - Enable all buttons
     def loadingStateDisable(self):
         for i in range(self.sidebarLayout.count()):
@@ -571,7 +699,7 @@ class EyeballProject(QMainWindow):
                 self.sidebarLayout.itemAt(i).widget().setEnabled(True)
 
     # Aletr Message Box
-    def alert(self, message:str, title:str="Information"):
+    def alert(self, message: str, title: str = "Information"):
         msg = QMessageBox()
         if title == "Error":
             msg.setIcon(QMessageBox.Icon.Critical)
@@ -585,11 +713,23 @@ class EyeballProject(QMainWindow):
         msg.setText(message)
         msg.exec()
 
+    # Clean up the temp file before closing the window
+    def closeEvent(self, event):
+        self.processedImages = None
+        try:
+            if os.path.exists('temp.mmap'):
+                os.remove('temp.mmap')
+                print("Temp file removed.")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            self.alert(f"An error occurred: {str(e)}", "Error")
+
 def main():
     """EyeballProject's main function."""
     pyApp = QApplication([])
     apply_stylesheet(pyApp, theme='dark_teal.xml')
-    pyApp.setStyleSheet(pyApp.styleSheet() + ("QLineEdit { color: white } QComboBox { color: white }"))
+    pyApp.setStyleSheet(
+        pyApp.styleSheet() + ("QLineEdit { color: white } QComboBox { color: white }"))
     pyAppWindow = EyeballProject()
     pyAppWindow.show()
     sys.exit(pyApp.exec())

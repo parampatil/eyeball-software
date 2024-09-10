@@ -564,11 +564,17 @@ class EyeballProject(QMainWindow):
         self.outputTab.clearThumbnails()
         self.outputTab.clearImagePreview()
         self.outputTab.images = None
-        if self.imageCount != len(self.processedImages) or shape[1] != self.processedImages.shape[1]:
-            self.processedImages = None
+        if self.imageCount != len(self.processedImages) or shape[1] != self.processedImages.shape[1]: #premature optimization
+            self.destroy_memmap()
             self.processedImages = self.create_memmap(shape)
-            # self.processedImages.resize(shape)
         return
+    
+    def destroy_memmap(self):
+        self.processedImages = None
+        self.worker.processedImages = None
+        self.outputTab.images = None
+
+
 
     def load_config(self):
         # Implement your data loading logic here
@@ -715,7 +721,7 @@ class EyeballProject(QMainWindow):
 
     # Clean up the temp file before closing the window
     def closeEvent(self, event):
-        self.processedImages = None
+        self.destroy_memmap()
         try:
             if os.path.exists('temp.mmap'):
                 os.remove('temp.mmap')

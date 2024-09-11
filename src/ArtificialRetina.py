@@ -63,7 +63,8 @@ class ArtificialRetina:
         self.peripheral_grayscale = peripheral_grayscale
         self.retinal_warp = retinal_warp
         self.display_output = display_output
-        self.verbose = verbose
+        # self.verbose = verbose
+        self.verbose = False
         self.video = video
         self.save_output = save_output
         self.output_dir = output_dir

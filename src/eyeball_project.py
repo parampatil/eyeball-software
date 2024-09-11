@@ -3,6 +3,7 @@ import json
 import datetime
 import os
 import traceback
+import subprocess
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout, \
     QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip, QMessageBox
@@ -12,9 +13,10 @@ from PIL import Image
 from custom_components import QImagePreview
 import numpy as np
 from qt_material import apply_stylesheet
-from ArtificialRetina import ArtificialRetina
 from ImageProcessingWorker import ImageProcessingWorker
 import validations
+import time
+
 
 class EyeballProject(QMainWindow):
     """EyeballProject's main window (GUI or view)."""
@@ -26,13 +28,16 @@ class EyeballProject(QMainWindow):
         self.imageCount = None
         self.currentThumbnailPage = 0
         self.processedImages = None
+        self.processTime = None
+        self.retina = None
 
         QToolTip.setFont(QFont('SansSerif', 10))
 
         self.init_UI()
         self.showMaximized()
 
-        self.retina = None
+        if os.path.exists('temp.mmap'):
+            os.remove('temp.mmap')
 
     def init_UI(self):
         """Initialises UI elements."""
@@ -298,6 +303,23 @@ class EyeballProject(QMainWindow):
         self.multiprocessingToggle.setToolTip(
             "Description: Enable multiprocessing for faster processing.\nDefault: Disabled")
         self.sidebarLayout.addWidget(self.multiprocessingToggle)
+        self.multiprocessingToggle.stateChanged.connect(
+            self.onMultiprocessingToggled)
+
+        # Number of cores
+        num_cores = os.cpu_count()
+        self.numCoresLabel = QLabel("Number of Cores")
+        self.numCoresLabel.setToolTip(f"Description: Set the number of cores to use for multiprocessing.\nDefault: {
+                                      num_cores-1} \nMax: {num_cores}")
+        self.numCoresComboBox = QComboBox()
+        self.numCoresComboBox.addItems([str(i) for i in range(1, num_cores+1)])
+        for i in range(1, num_cores+1):
+            self.numCoresComboBox.setItemData(i-1, i)
+        self.numCoresComboBox.setCurrentText(str(num_cores-1))
+        self.sidebarLayout.addWidget(self.numCoresLabel)
+        self.sidebarLayout.addWidget(self.numCoresComboBox)
+        self.numCoresLabel.setEnabled(False)
+        self.numCoresComboBox.setEnabled(False)
 
         # Eye Type
         self.eyeTypeLabel = QLabel("Eye Type")
@@ -387,26 +409,27 @@ class EyeballProject(QMainWindow):
             dir.setNameFilters(["*.jpg", "*.jpeg", "*.png", "*.bmp"])
             self.imageFiles = dir.entryList()
             self.imageCount = len(self.imageFiles)
-
-            # TODO: handle exception
+        
             if self.imageCount == 0:
-                raise ValueError(f"No Images Found in {folderPath}")
-
+                self.alert(f'No Images Found in {folderPath}', "Warning")
+                self.btnRunModel.setEnabled(False)
+                self.imageCountLabel.setText("No images found")
+                return
+        
             self.imageCountLabel.setWordWrap(True)
             self.imageCountLabel.setText(
                 f'Path: {folderPath}, Images found: {self.imageCount}')
             self.alert(f'Path: {folderPath}, Images found: {
                        self.imageCount}', "Information")
-
+        
             self.folderPath = folderPath
             self.inputTab.setImagePath(
                 folder=folderPath, images=self.imageFiles)
             self.btnRunModel.setEnabled(True)
             self.btnRunModel.setStyleSheet("background-color: green")
-            # self.processedImages = None
-
+            self.tabWidget.setCurrentIndex(0)
             self.progressBar.setMaximum(self.imageCount)
-        # self.showMaximized()
+            self.progressBar.setValue(0)
 
     def colletUserInput(self):
         # Validate & gather the input parameters
@@ -469,25 +492,19 @@ class EyeballProject(QMainWindow):
         Additional Settings:
         --------------------
         Retinal Warp: {userInput[9]}
+
+        Run Information:
+        ----------------
+        Number of images: {self.imageCount}
+        Multiprocessing: {self.multiprocessingToggle.isChecked()}
+        Number of cores: {self.numCoresComboBox.currentData()}
+        Processing Time: {self.processTime}
         '''
+
+        self.processTime = None
 
         with open(filename, "w") as file:
             file.write(info)
-
-    def generate_retina_object(self, resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, retinal_warp, verbose):
-        # Process the images based on the selected parameters
-        retina = ArtificialRetina(P=resolution,
-                                  fovea_center=fovea_center,
-                                  fovea_radius=fovea_radius,
-                                  peripheral_active_cones=peripheral_active_cones,
-                                  fovea_active_rods=fovea_active_rods,
-                                  peripheral_gaussianBlur=peripheral_gaussianBlur,
-                                  peripheral_gaussianBlur_kernal=peripheral_gaussianBlur_kernal,
-                                  peripheral_gaussianBlur_sigma=peripheral_gaussianBlur_sigma,
-                                  peripheral_grayscale=peripheral_grayscale,
-                                  retinal_warp=retinal_warp,
-                                  verbose=verbose)
-        return retina
 
     def runModel(self):
         self.loadingStateEnable()
@@ -503,45 +520,47 @@ class EyeballProject(QMainWindow):
                 # Rerun the model with new parameters
                 self.refresh_memmap(
                     (len(self.imageFiles), userInput[0], userInput[0], 3))
-            
+
             # Report the estimated time
             def estimate_time(est_time):
                 self.estimatedTimeLabel.setText(est_time)
+
+            def setProcessTime(time):
+                self.processTime = time
                 
             def processing_finished(processedImages):
-                # Handle completion of processing
-                self.processedImages = processedImages
-                 # Save the log if verbose is enabled
+                # Save the log if verbose is enabled
                 if self.verboseToggle.isChecked():
                     self.save_log(userInput)
 
-                # end_time = datetime.datetime.now()
-                # print(f"Time taken: {end_time - start_time}")
                 self.loadingStateDisable()
-                self.outputTab.setImages(images=self.processedImages)
+                self.outputTab.setImages(images=processedImages)
                 self.tabWidget.setTabEnabled(1, True)
                 self.tabWidget.setCurrentIndex(1)
                 self.btnSave.setEnabled(True)
                 self.alert("Model run successfully.", "Information")
                 self.btnSave.setStyleSheet("background-color: green")
                 del processedImages
-                
                 print("Processing finished")
+                del self.worker
+
 
             # Create a worker thread to process the images
-            self.worker = ImageProcessingWorker(
-                userInput, self.folderPath, self.imageFiles, self.multiprocessingToggle.isChecked(), self.processedImages, self.generate_retina_object)
+            self.worker = ImageProcessingWorker(userInput, self.folderPath, self.imageFiles, self.multiprocessingToggle.isChecked(
+            ), self.numCoresComboBox.currentData(), self.processedImages)
             self.worker.progress.connect(self.progressBar.setValue)
             self.worker.result.connect(processing_finished)
             self.worker.estimated_time.connect(estimate_time)
+            self.worker.processTime.connect(setProcessTime)
             self.worker.start()
-           
+
         except validations.ValidationException as e:
+            self.loadingStateDisable()
             self.alert(f"Validation Failed: {str(e)}", "Error")
             print(f"Validation Failed: {str(e)}")
         except Exception as e:
+            self.loadingStateDisable()
             self.alert(f"An error occurred: {str(e)}", "Error")
-            traceback.print_exc()
             print(f"An error occurred: {str(e)}")
 
     def saveImages(self):
@@ -552,7 +571,8 @@ class EyeballProject(QMainWindow):
             for i, image in enumerate(self.processedImages):
                 Image.fromarray(image).save(
                     QDir(saveDir).filePath(self.imageFiles[i]))
-            self.alert(f"Saved {len(self.processedImages)} images to {saveDir}", "Information")
+            self.alert(f"Saved {len(self.processedImages)} images to {
+                       saveDir}", "Information")
             print(f'Saved {len(self.processedImages)} images to {saveDir}')
 
     def create_memmap(self, size, path='temp.mmap', dtype='uint8', mode='w+'):
@@ -564,17 +584,16 @@ class EyeballProject(QMainWindow):
         self.outputTab.clearThumbnails()
         self.outputTab.clearImagePreview()
         self.outputTab.images = None
-        if self.imageCount != len(self.processedImages) or shape[1] != self.processedImages.shape[1]: #premature optimization
+        # premature optimization
+        if self.imageCount != len(self.processedImages) or shape[1] != self.processedImages.shape[1]:
             self.destroy_memmap()
             self.processedImages = self.create_memmap(shape)
         return
-    
+
     def destroy_memmap(self):
         self.processedImages = None
-        self.worker.processedImages = None
         self.outputTab.images = None
-
-
+        os.remove('temp.mmap')
 
     def load_config(self):
         # Implement your data loading logic here
@@ -687,22 +706,22 @@ class EyeballProject(QMainWindow):
         self.peripheralSigmaLabel.setEnabled(is_enabled)
         self.peripheralSigmaField.setEnabled(is_enabled)
 
+    # Slot to handle the state change of the Multiprocessing toggle
+    def onMultiprocessingToggled(self, state):
+        is_enabled = True if state == 2 else False
+        self.numCoresLabel.setEnabled(is_enabled)
+        self.numCoresComboBox.setEnabled(is_enabled)
+
     # Loading State - Disable all buttons
     def loadingStateEnable(self):
         self.btnSave.setEnabled(False)
         self.progressBar.reset()
         self.progressBar.setVisible(True)
-        for i in range(self.sidebarLayout.count()):
-            widget = self.sidebarLayout.itemAt(i).widget()
-            if widget is not None:
-                self.sidebarLayout.itemAt(i).widget().setEnabled(False)
+        self.sidebarLayoutWidget.setEnabled(False)
 
     # Loading State - Enable all buttons
     def loadingStateDisable(self):
-        for i in range(self.sidebarLayout.count()):
-            widget = self.sidebarLayout.itemAt(i).widget()
-            if widget is not None:
-                self.sidebarLayout.itemAt(i).widget().setEnabled(True)
+        self.sidebarLayoutWidget.setEnabled(True)
 
     # Aletr Message Box
     def alert(self, message: str, title: str = "Information"):
@@ -720,15 +739,16 @@ class EyeballProject(QMainWindow):
         msg.exec()
 
     # Clean up the temp file before closing the window
-    def closeEvent(self, event):
-        self.destroy_memmap()
-        try:
-            if os.path.exists('temp.mmap'):
-                os.remove('temp.mmap')
-                print("Temp file removed.")
-        except Exception as e:
-            print(f"An error occurred: {str(e)}")
-            self.alert(f"An error occurred: {str(e)}", "Error")
+    # def closeEvent(self, event):
+    #     try:
+    #         self.destroy_memmap()
+
+    #         if os.path.exists('temp.mmap'):
+    #             os.remove('temp.mmap')
+    #     except Exception as e:
+    #         print(f"An error occurred: {str(e)}")
+    #         traceback.print_exc()
+    #         self.alert(f"An error occurred: {str(e)}", "Error")
 
 def main():
     """EyeballProject's main function."""

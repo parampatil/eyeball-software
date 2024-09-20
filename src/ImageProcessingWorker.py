@@ -5,7 +5,7 @@ from ArtificialRetina import ArtificialRetina
 
 def process_image(resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods,
                   peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma,
-                  peripheral_grayscale, retinal_warp, verbose, folderPath, fileName, i):
+                  peripheral_grayscale, fovea_type, fovea_grid_size, retinal_warp, verbose, folderPath, fileName, i):
 
     # Create the retina object within the worker process
     retina = ArtificialRetina(
@@ -18,6 +18,8 @@ def process_image(resolution, fovea_center, fovea_radius, peripheral_active_cone
         peripheral_gaussianBlur_kernal=peripheral_gaussianBlur_kernal,
         peripheral_gaussianBlur_sigma=peripheral_gaussianBlur_sigma,
         peripheral_grayscale=peripheral_grayscale,
+        foveation_type = fovea_type,
+        dynamic_foveation_grid_size=fovea_grid_size,
         retinal_warp=retinal_warp,
         verbose=verbose
     )
@@ -79,8 +81,10 @@ class ImageProcessingWorker(QThread):
         self.result.emit(self.processedImages)
     
     # Generate the retina object
-    def generate_retina_object(self, resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, retinal_warp, verbose):
+    def generate_retina_object(self, resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, fovea_type, fovea_grid_size, retinal_warp, verbose):
         retina = ArtificialRetina(P=resolution,
+                                    foveation_type = fovea_type,
+                                    dynamic_foveation_grid_size=fovea_grid_size,
                                     fovea_center=fovea_center,
                                     fovea_radius=fovea_radius,
                                     peripheral_active_cones=peripheral_active_cones,

@@ -2,8 +2,6 @@ import sys
 import json
 import datetime
 import os
-import traceback
-import subprocess
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout, \
     QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip, QMessageBox
@@ -15,7 +13,6 @@ import numpy as np
 from qt_material import apply_stylesheet
 from ImageProcessingWorker import ImageProcessingWorker
 import validations
-import time
 
 
 class EyeballProject(QMainWindow):
@@ -149,8 +146,7 @@ class EyeballProject(QMainWindow):
         self.inputResolutionField.setPlaceholderText(
             "Enter resolution in format: 224")
         self.intValidator_inputResolutionField = QIntValidator(0, 10000)
-        self.inputResolutionField.setValidator(
-            self.intValidator_inputResolutionField)
+        self.inputResolutionField.setValidator(self.intValidator_inputResolutionField)
         self.sidebarLayout.addWidget(self.inputResolutionLabel)
         self.sidebarLayout.addWidget(self.inputResolutionField)
 
@@ -292,6 +288,39 @@ class EyeballProject(QMainWindow):
             "Description: Apply retinal warp to the processed images.")
         self.sidebarLayout.addWidget(self.retinalWarpToggle)
 
+        # Fovea Type
+        self.foveaTypeLabel = QLabel("Fovea Type")
+        self.foveaTypeLabel.setToolTip(
+            "Description: Select the type of fovea to simulate.")
+        self.foveaTypeStaticRadioButton = QRadioButton("Static")
+        self.foveaTypeDynamicRadioButton = QRadioButton("Dynamic")
+        self.foveaTypeStaticRadioButton.setChecked(True)  # Default to Static
+        self.foveaTypeDynamicRadioButton.toggled.connect(self.onFoveaTypeSelected)
+
+        # Group the Fovea Type radio buttons
+        self.foveaTypeGroup = QButtonGroup(self)
+        self.foveaTypeGroup.addButton(self.foveaTypeStaticRadioButton)
+        self.foveaTypeGroup.addButton(self.foveaTypeDynamicRadioButton)
+
+        foveaTypeLayout = QHBoxLayout()
+        foveaTypeLayout.addWidget(self.foveaTypeStaticRadioButton)
+        foveaTypeLayout.addWidget(self.foveaTypeDynamicRadioButton)
+        self.sidebarLayout.addWidget(self.foveaTypeLabel)
+        self.sidebarLayout.addLayout(foveaTypeLayout)
+
+        self.dynamicFoveaGridSizeLabel = QLabel("Dynamic Fovea Grid Size")
+        self.dynamicFoveaGridSizeLabel.setToolTip("Description: Set the grid size for the Dynamic Fovea.")
+
+        self.dynamicFoveaGridSizeField = QLineEdit()
+        self.dynamicFoveaGridSizeField.setPlaceholderText("0")
+        self.dynamicFoveaIntValidator = QIntValidator(0,100)
+        self.dynamicFoveaGridSizeField.setValidator(self.dynamicFoveaIntValidator)
+        self.dynamicFoveaGridSizeField.setEnabled(False)
+        self.dynamicFoveaGridSizeLabel.setEnabled(False)
+
+        self.sidebarLayout.addWidget(self.dynamicFoveaGridSizeLabel)
+        self.sidebarLayout.addWidget(self.dynamicFoveaGridSizeField)
+
         # Verbose
         self.verboseToggle = QCheckBox("Verbose")
         self.verboseToggle.setToolTip(
@@ -339,25 +368,6 @@ class EyeballProject(QMainWindow):
         eyeTypeLayout.addWidget(self.eyeTypeDualRadioButton)
         self.sidebarLayout.addWidget(self.eyeTypeLabel)
         self.sidebarLayout.addLayout(eyeTypeLayout)
-
-        # Fovea Type
-        self.foveaTypeLabel = QLabel("Fovea Type")
-        self.foveaTypeLabel.setToolTip(
-            "Description: Select the type of fovea to simulate.")
-        self.foveaTypeStaticRadioButton = QRadioButton("Static")
-        self.foveaTypeDynamicRadioButton = QRadioButton("Dynamic")
-        self.foveaTypeStaticRadioButton.setChecked(True)  # Default to Static
-
-        # Group the Fovea Type radio buttons
-        self.foveaTypeGroup = QButtonGroup(self)
-        self.foveaTypeGroup.addButton(self.foveaTypeStaticRadioButton)
-        self.foveaTypeGroup.addButton(self.foveaTypeDynamicRadioButton)
-
-        foveaTypeLayout = QHBoxLayout()
-        foveaTypeLayout.addWidget(self.foveaTypeStaticRadioButton)
-        foveaTypeLayout.addWidget(self.foveaTypeDynamicRadioButton)
-        self.sidebarLayout.addWidget(self.foveaTypeLabel)
-        self.sidebarLayout.addLayout(foveaTypeLayout)
 
         # Adding middle layout to main layout
         layout.addLayout(midLayout)
@@ -432,6 +442,7 @@ class EyeballProject(QMainWindow):
             self.progressBar.setValue(0)
 
     def colletUserInput(self):
+        # TODO: this needs a standardized representation - class model.
         # Validate & gather the input parameters
         resolution = self.inputResolutionField.text()
         if validations.isInt(resolution, "Resolution"):
@@ -453,18 +464,23 @@ class EyeballProject(QMainWindow):
 
         if peripheral_gaussianBlur:
             peripheral_gaussianBlur_kernal = self.peripheralBlurKernalComboBox.currentData()
-            peripheral_gaussianBlur_sigma = float(self.peripheralSigmaField.text(
-            )) if validations.isFloat(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
+            peripheral_gaussianBlur_sigma = float(self.peripheralSigmaField.text()) if validations.isFloat(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
         else:
             peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma = None, None
 
         peripheral_grayscale = self.peripheralGrayscaleToggle.isChecked()
 
+        fovea_type = "dynamic" if self.foveaTypeDynamicRadioButton.isChecked() else "static"
+
+        fovea_grid_size = int(self.dynamicFoveaGridSizeField.text()) if self.foveaTypeDynamicRadioButton.isChecked() and validations.isInt(self.dynamicFoveaGridSizeField.text(), "Dynamic Fovea Grid Size") else 0
+        fovea_grid_size = (fovea_grid_size, fovea_grid_size)
+
         retinal_warp = self.retinalWarpToggle.isChecked()
 
         verbose = self.verboseToggle.isChecked()
 
-        return resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, retinal_warp, verbose
+        return resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, \
+           fovea_type, fovea_grid_size, retinal_warp, verbose
 
     def save_log(self, userInput):
         filename = f"Log {datetime.datetime.now().strftime(
@@ -477,6 +493,8 @@ class EyeballProject(QMainWindow):
 
         Fovea Information:
         ------------------
+        Fovea type: {userInput[9]}
+        Dynamic fovea grid size: {userInput[10]}
         Fovea center: {userInput[1]}
         Fovea radius: {userInput[2]}
         Peripheral active rods: {userInput[4]}%
@@ -491,7 +509,7 @@ class EyeballProject(QMainWindow):
 
         Additional Settings:
         --------------------
-        Retinal Warp: {userInput[9]}
+        Retinal Warp: {userInput[11]}
 
         Run Information:
         ----------------
@@ -544,7 +562,6 @@ class EyeballProject(QMainWindow):
                 print("Processing finished")
                 del self.worker
 
-
             # Create a worker thread to process the images
             self.worker = ImageProcessingWorker(userInput, self.folderPath, self.imageFiles, self.multiprocessingToggle.isChecked(
             ), self.numCoresComboBox.currentData(), self.processedImages)
@@ -571,8 +588,7 @@ class EyeballProject(QMainWindow):
             for i, image in enumerate(self.processedImages):
                 Image.fromarray(image).save(
                     QDir(saveDir).filePath(self.imageFiles[i]))
-            self.alert(f"Saved {len(self.processedImages)} images to {
-                       saveDir}", "Information")
+            self.alert(f"Saved {len(self.processedImages)} images to {saveDir}", "Information")
             print(f'Saved {len(self.processedImages)} images to {saveDir}')
 
     def create_memmap(self, size, path='temp.mmap', dtype='uint8', mode='w+'):
@@ -596,7 +612,6 @@ class EyeballProject(QMainWindow):
         os.remove('temp.mmap')
 
     def load_config(self):
-        # Implement your data loading logic here
         print("Loading config data...")
         filePath = QFileDialog.getOpenFileName(
             self, 'Open Config File', '', 'JSON Files (*.json)')[0]
@@ -631,6 +646,8 @@ class EyeballProject(QMainWindow):
                         data['fovea_type'] == "Static")
                     self.foveaTypeDynamicRadioButton.setChecked(
                         data['fovea_type'] == "Dynamic")
+                    if self.foveaTypeDynamicRadioButton.isChecked():
+                        self.dynamicFoveaGridSizeField.setText(data['fovea_grid_size'])
 
                     print("Config Data loaded.")
             except Exception as e:
@@ -641,7 +658,6 @@ class EyeballProject(QMainWindow):
             print("No file path selected.")
 
     def save_config(self):
-        # Implement your data saving logic here
         print("Saving data...")
         filePath = QFileDialog.getSaveFileName(
             self, 'Save Config File', '', 'JSON Files (*.json)')[0]
@@ -661,7 +677,8 @@ class EyeballProject(QMainWindow):
                     'retinal_warp': self.retinalWarpToggle.isChecked(),
                     'verbose': self.verboseToggle.isChecked(),
                     'eye_type': "Single Eye" if self.eyeTypeSingleRadioButton.isChecked() else "Dual Eye",
-                    'fovea_type': "Static" if self.foveaTypeStaticRadioButton.isChecked() else "Dynamic"
+                    'fovea_type': "Static" if self.foveaTypeStaticRadioButton.isChecked() else "Dynamic",
+                    'fovea_grid_size': self.dynamicFoveaGridSizeField.text()
                 }
                 with open(filePath, 'w') as file:
                     json.dump(data, file, indent=4)
@@ -711,6 +728,10 @@ class EyeballProject(QMainWindow):
         is_enabled = True if state == 2 else False
         self.numCoresLabel.setEnabled(is_enabled)
         self.numCoresComboBox.setEnabled(is_enabled)
+
+    def onFoveaTypeSelected(self, selected):
+        self.dynamicFoveaGridSizeLabel.setEnabled(selected)
+        self.dynamicFoveaGridSizeField.setEnabled(selected)
 
     # Loading State - Disable all buttons
     def loadingStateEnable(self):

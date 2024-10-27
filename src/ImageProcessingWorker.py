@@ -1,34 +1,38 @@
-import datetime
+import datetime, os, multiprocessing
 from PyQt6.QtCore import QDir, QThread, pyqtSignal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from ArtificialRetina import ArtificialRetina
+import traceback
 
 def process_image(resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods,
                   peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma,
                   peripheral_grayscale, fovea_type, fovea_grid_size, retinal_warp, verbose, folderPath, fileName, i):
+    try:
+        # Create the retina object within the worker process
+        retina = ArtificialRetina(
+            P=resolution,
+            fovea_center=fovea_center,
+            fovea_radius=fovea_radius,
+            peripheral_active_cones=peripheral_active_cones,
+            fovea_active_rods=fovea_active_rods,
+            peripheral_gaussianBlur=peripheral_gaussianBlur,
+            peripheral_gaussianBlur_kernal=peripheral_gaussianBlur_kernal,
+            peripheral_gaussianBlur_sigma=peripheral_gaussianBlur_sigma,
+            peripheral_grayscale=peripheral_grayscale,
+            foveation_type = fovea_type,
+            dynamic_foveation_grid_size=fovea_grid_size,
+            retinal_warp=retinal_warp,
+            verbose=verbose
+        )
 
-    # Create the retina object within the worker process
-    retina = ArtificialRetina(
-        P=resolution,
-        fovea_center=fovea_center,
-        fovea_radius=fovea_radius,
-        peripheral_active_cones=peripheral_active_cones,
-        fovea_active_rods=fovea_active_rods,
-        peripheral_gaussianBlur=peripheral_gaussianBlur,
-        peripheral_gaussianBlur_kernal=peripheral_gaussianBlur_kernal,
-        peripheral_gaussianBlur_sigma=peripheral_gaussianBlur_sigma,
-        peripheral_grayscale=peripheral_grayscale,
-        foveation_type = fovea_type,
-        dynamic_foveation_grid_size=fovea_grid_size,
-        retinal_warp=retinal_warp,
-        verbose=verbose
-    )
+        # Process the image
+        image_path = os.path.join(folderPath, fileName)
+        processed_image = retina.apply(image_path=image_path)
+        return i, processed_image
+    except Exception as e:
+        print(f"Error processing image {fileName}: {str(e)}")
+        return i, None
 
-    # Process the image
-    image_path = QDir(folderPath).filePath(fileName)
-    processed_image = retina.apply(image_path=image_path)
-
-    return i, processed_image
 
 class ImageProcessingWorker(QThread):
     progress = pyqtSignal(int)
@@ -52,17 +56,25 @@ class ImageProcessingWorker(QThread):
         start_time = datetime.datetime.now()
         imageFiles_cnt = len(self.imageFiles)
         if self.multiprocessingToggle:
-            with ProcessPoolExecutor(self.numCores) as executor:
-                futures = [executor.submit(process_image, *self.userInput, self.folderPath, fileName, i)
-                            for i, fileName in enumerate(self.imageFiles)]
-                for i, future in enumerate(as_completed(futures)):
-                    n, processed_image = future.result()
-                    self.processedImages[n] = processed_image
-                    self.progress.emit(i+1)
-                    # Calculate estimated time
-                    elapsed_time = datetime.datetime.now() - start_time
-                    estimated_time = elapsed_time / (i+1) * (imageFiles_cnt - (i+1))
-                    self.estimated_time.emit(f"Estimated Time Remaining: {estimated_time}")
+           with multiprocessing.Pool(processes=self.numCores) as pool:
+                results = []
+                for i, fileName in enumerate(self.imageFiles):
+                    result = pool.apply_async(process_image, (*self.userInput, self.folderPath, fileName, i))
+                    results.append(result)
+
+                for i, result in enumerate(results):
+                    try:
+                        n, processed_image = result.get()
+                        if processed_image is not None:
+                            self.processedImages[n] = processed_image
+                        self.progress.emit(i+1)
+                        
+                        # Calculate estimated time
+                        elapsed_time = datetime.datetime.now() - start_time
+                        estimated_time = elapsed_time / (i+1) * (imageFiles_cnt - (i+1))
+                        self.estimated_time.emit(f"Estimated Time Remaining: {estimated_time}")
+                    except Exception as e:
+                        print(f"Error processing future: {str(e)}")
         else:
             retina = self.generate_retina_object(*self.userInput)
             for i, fileName in enumerate(self.imageFiles):

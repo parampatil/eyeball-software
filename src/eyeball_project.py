@@ -2,6 +2,8 @@ import sys
 import json
 import datetime
 import os
+import multiprocessing
+import mmap
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout, \
     QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip, QMessageBox
@@ -33,8 +35,8 @@ class EyeballProject(QMainWindow):
         self.init_UI()
         self.showMaximized()
 
-        if os.path.exists('temp.mmap'):
-            os.remove('temp.mmap')
+        # if os.path.exists('temp.mmap'):
+        #     os.remove('temp.mmap')
 
     def init_UI(self):
         """Initialises UI elements."""
@@ -760,21 +762,23 @@ class EyeballProject(QMainWindow):
         msg.exec()
 
     # Clean up the temp file before closing the window
-    # def closeEvent(self, event):
-    #     try:
-    #         self.destroy_memmap()
+    def closeEvent(self, event):
+        try:
+            self.destroy_memmap()
 
-    #         if os.path.exists('temp.mmap'):
-    #             os.remove('temp.mmap')
-    #     except Exception as e:
-    #         print(f"An error occurred: {str(e)}")
-    #         traceback.print_exc()
-    #         self.alert(f"An error occurred: {str(e)}", "Error")
+            if os.path.exists('temp.mmap'):
+                os.remove('temp.mmap')
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            self.alert(f"An error occurred: {str(e)}", "Error")
 
 def main():
     """EyeballProject's main function."""
     pyApp = QApplication([])
-    apply_stylesheet(pyApp, theme='dark_teal.xml')
+    extra = {
+        'density_scale': '-1'
+    }
+    apply_stylesheet(pyApp, theme='dark_teal.xml', extra=extra)
     pyApp.setStyleSheet(
         pyApp.styleSheet() + ("QLineEdit { color: white } QComboBox { color: white }"))
     pyAppWindow = EyeballProject()
@@ -782,4 +786,6 @@ def main():
     sys.exit(pyApp.exec())
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
+    multiprocessing.set_start_method('spawn', force=True)
     main()

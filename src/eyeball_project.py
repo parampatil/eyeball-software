@@ -3,10 +3,9 @@ import json
 import datetime
 import os
 import multiprocessing
-import mmap
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QHBoxLayout, \
-    QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip, QMessageBox
+    QRadioButton, QSlider, QCheckBox, QGroupBox, QComboBox, QTabWidget, QButtonGroup, QLineEdit, QProgressBar, QScrollArea, QToolTip, QMessageBox, QToolBar, QSystemTrayIcon, QStyle
 from PyQt6.QtGui import QIntValidator, QDoubleValidator, QFont, QIcon
 from PyQt6.QtCore import QDir, Qt
 from PIL import Image
@@ -14,7 +13,11 @@ from custom_components import QImagePreview
 import numpy as np
 from qt_material import apply_stylesheet
 from ImageProcessingWorker import ImageProcessingWorker
+from UpdateChecker import UpdateChecker
 import validations
+
+REPO = "parampatil/eyeball-software"
+CURRENT_VERSION = "v0.1.0"
 
 
 class EyeballProject(QMainWindow):
@@ -29,6 +32,7 @@ class EyeballProject(QMainWindow):
         self.processedImages = None
         self.processTime = None
         self.retina = None
+        self.updateChecker = UpdateChecker(REPO, CURRENT_VERSION)
 
         QToolTip.setFont(QFont('SansSerif', 10))
 
@@ -47,6 +51,22 @@ class EyeballProject(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
+
+        # region MenuBar
+        # Toolbar
+        toolbar = QToolBar()
+        self.addToolBar(toolbar)
+
+        # About Button
+        aboutAction = toolbar.addAction(QIcon('info.png'), 'About')
+        aboutAction.setToolTip('About this app')
+        aboutAction.triggered.connect(self.showAboutDialog)
+
+        # Notifications Icon
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(self.style().standardIcon(
+            QStyle.StandardPixmap.SP_ComputerIcon))
+        self.tray_icon.setVisible(True)
 
         # region TopLayout
         # Top Layout - houses the folder selector
@@ -148,7 +168,8 @@ class EyeballProject(QMainWindow):
         self.inputResolutionField.setPlaceholderText(
             "Enter resolution in format: 224")
         self.intValidator_inputResolutionField = QIntValidator(0, 10000)
-        self.inputResolutionField.setValidator(self.intValidator_inputResolutionField)
+        self.inputResolutionField.setValidator(
+            self.intValidator_inputResolutionField)
         self.sidebarLayout.addWidget(self.inputResolutionLabel)
         self.sidebarLayout.addWidget(self.inputResolutionField)
 
@@ -297,7 +318,8 @@ class EyeballProject(QMainWindow):
         self.foveaTypeStaticRadioButton = QRadioButton("Static")
         self.foveaTypeDynamicRadioButton = QRadioButton("Dynamic")
         self.foveaTypeStaticRadioButton.setChecked(True)  # Default to Static
-        self.foveaTypeDynamicRadioButton.toggled.connect(self.onFoveaTypeSelected)
+        self.foveaTypeDynamicRadioButton.toggled.connect(
+            self.onFoveaTypeSelected)
 
         # Group the Fovea Type radio buttons
         self.foveaTypeGroup = QButtonGroup(self)
@@ -311,12 +333,14 @@ class EyeballProject(QMainWindow):
         self.sidebarLayout.addLayout(foveaTypeLayout)
 
         self.dynamicFoveaGridSizeLabel = QLabel("Dynamic Fovea Grid Size")
-        self.dynamicFoveaGridSizeLabel.setToolTip("Description: Set the grid size for the Dynamic Fovea.")
+        self.dynamicFoveaGridSizeLabel.setToolTip(
+            "Description: Set the grid size for the Dynamic Fovea.")
 
         self.dynamicFoveaGridSizeField = QLineEdit()
         self.dynamicFoveaGridSizeField.setPlaceholderText("0")
-        self.dynamicFoveaIntValidator = QIntValidator(0,100)
-        self.dynamicFoveaGridSizeField.setValidator(self.dynamicFoveaIntValidator)
+        self.dynamicFoveaIntValidator = QIntValidator(0, 100)
+        self.dynamicFoveaGridSizeField.setValidator(
+            self.dynamicFoveaIntValidator)
         self.dynamicFoveaGridSizeField.setEnabled(False)
         self.dynamicFoveaGridSizeLabel.setEnabled(False)
 
@@ -421,19 +445,19 @@ class EyeballProject(QMainWindow):
             dir.setNameFilters(["*.jpg", "*.jpeg", "*.png", "*.bmp"])
             self.imageFiles = dir.entryList()
             self.imageCount = len(self.imageFiles)
-        
+
             if self.imageCount == 0:
                 self.alert(f'No Images Found in {folderPath}', "Warning")
                 self.btnRunModel.setEnabled(False)
                 self.imageCountLabel.setText("No images found")
                 return
-        
+
             self.imageCountLabel.setWordWrap(True)
             self.imageCountLabel.setText(
                 f'Path: {folderPath}, Images found: {self.imageCount}')
-            self.alert(f'Path: {folderPath}, Images found: {
-                       self.imageCount}', "Information")
-        
+            # self.alert(f'Path: {folderPath}, Images found: {
+            #            self.imageCount}', "Information")
+
             self.folderPath = folderPath
             self.inputTab.setImagePath(
                 folder=folderPath, images=self.imageFiles)
@@ -466,7 +490,8 @@ class EyeballProject(QMainWindow):
 
         if peripheral_gaussianBlur:
             peripheral_gaussianBlur_kernal = self.peripheralBlurKernalComboBox.currentData()
-            peripheral_gaussianBlur_sigma = float(self.peripheralSigmaField.text()) if validations.isFloat(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
+            peripheral_gaussianBlur_sigma = float(self.peripheralSigmaField.text(
+            )) if validations.isFloat(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
         else:
             peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma = None, None
 
@@ -474,7 +499,8 @@ class EyeballProject(QMainWindow):
 
         fovea_type = "dynamic" if self.foveaTypeDynamicRadioButton.isChecked() else "static"
 
-        fovea_grid_size = int(self.dynamicFoveaGridSizeField.text()) if self.foveaTypeDynamicRadioButton.isChecked() and validations.isInt(self.dynamicFoveaGridSizeField.text(), "Dynamic Fovea Grid Size") else 0
+        fovea_grid_size = int(self.dynamicFoveaGridSizeField.text()) if self.foveaTypeDynamicRadioButton.isChecked(
+        ) and validations.isInt(self.dynamicFoveaGridSizeField.text(), "Dynamic Fovea Grid Size") else 0
         fovea_grid_size = (fovea_grid_size, fovea_grid_size)
 
         retinal_warp = self.retinalWarpToggle.isChecked()
@@ -482,7 +508,7 @@ class EyeballProject(QMainWindow):
         verbose = self.verboseToggle.isChecked()
 
         return resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, \
-           fovea_type, fovea_grid_size, retinal_warp, verbose
+            fovea_type, fovea_grid_size, retinal_warp, verbose
 
     def save_log(self, userInput):
         filename = f"Log {datetime.datetime.now().strftime(
@@ -547,7 +573,7 @@ class EyeballProject(QMainWindow):
 
             def setProcessTime(time):
                 self.processTime = time
-                
+
             def processing_finished(processedImages):
                 # Save the log if verbose is enabled
                 if self.verboseToggle.isChecked():
@@ -590,7 +616,8 @@ class EyeballProject(QMainWindow):
             for i, image in enumerate(self.processedImages):
                 Image.fromarray(image).save(
                     QDir(saveDir).filePath(self.imageFiles[i]))
-            self.alert(f"Saved {len(self.processedImages)} images to {saveDir}", "Information")
+            self.alert(f"Saved {len(self.processedImages)} images to {
+                       saveDir}", "Information")
             print(f'Saved {len(self.processedImages)} images to {saveDir}')
 
     def create_memmap(self, size, path='temp.mmap', dtype='uint8', mode='w+'):
@@ -611,7 +638,8 @@ class EyeballProject(QMainWindow):
     def destroy_memmap(self):
         self.processedImages = None
         self.outputTab.images = None
-        os.remove('temp.mmap')
+        if os.path.exists('temp.mmap'):
+            os.remove('temp.mmap')
 
     def load_config(self):
         print("Loading config data...")
@@ -649,7 +677,8 @@ class EyeballProject(QMainWindow):
                     self.foveaTypeDynamicRadioButton.setChecked(
                         data['fovea_type'] == "Dynamic")
                     if self.foveaTypeDynamicRadioButton.isChecked():
-                        self.dynamicFoveaGridSizeField.setText(data['fovea_grid_size'])
+                        self.dynamicFoveaGridSizeField.setText(
+                            data['fovea_grid_size'])
 
                     print("Config Data loaded.")
             except Exception as e:
@@ -761,16 +790,59 @@ class EyeballProject(QMainWindow):
         msg.setText(message)
         msg.exec()
 
-    # Clean up the temp file before closing the window
-    def closeEvent(self, event):
-        try:
-            self.destroy_memmap()
+    # About Message Box
+    def showAboutDialog(self):
+        msg = QMessageBox()
+        msg.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton))
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg.setMinimumWidth(800)
+        msg.setMinimumHeight(800)
+        msg.setWindowTitle("About")
+        msg.setText(
+            f"Eyeball Project\n\nVersion: {CURRENT_VERSION}\nDeveloped by: Wood Labs")
+        checkUpdatesButton = msg.addButton("Check for Updates", QMessageBox.ButtonRole.ActionRole)
+        checkUpdatesButton.clicked.connect(self.checkForUpdates)
+        msg.exec()
 
-            if os.path.exists('temp.mmap'):
-                os.remove('temp.mmap')
-        except Exception as e:
-            print(f"An error occurred: {str(e)}")
-            self.alert(f"An error occurred: {str(e)}", "Error")
+    def checkForUpdates(self):
+        msg = QMessageBox()
+        msg.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton))
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg.setWindowTitle("Update Information")
+        msg.setText(f"No updates available.")
+        isUpdateAvailable = self.updateChecker.check_for_update()
+        if isUpdateAvailable:
+            msg.setText(f"A new update is available: {self.updateChecker.latest_release}")
+            downloadButton = msg.addButton("Download Update", QMessageBox.ButtonRole.ActionRole)
+            downloadButton.clicked.connect(self.downloadUpdate)
+        else:
+            msg.setText(
+            f"No updates available.")
+
+        msg.exec()
+
+    def downloadUpdate(self):
+        filePath, _ = QFileDialog.getSaveFileName(self, "Save Update File", f"eyeball-{self.updateChecker.latest_release}", "Executable Files (*.exe)")
+        if filePath:
+            try:
+                if self.updateChecker.download_update(filePath):
+                    self.alert(f"Update downloaded successfully to {filePath}", "Information")
+                else:
+                    self.alert("An error occurred while downloading the update.", "Error")
+            except Exception as e:
+                self.alert(f"An error occurred while downloading the update: {str(e)}", "Error")
+
+    # Clean up the temp file before closing the window
+    # def closeEvent(self, event):
+    #     try:
+    #         self.destroy_memmap()
+
+    #         if os.path.exists('temp.mmap'):
+    #             os.remove('temp.mmap')
+    #     except Exception as e:
+    #         print(f"An error occurred: {str(e)}")
+    #         self.alert(f"An error occurred: {str(e)}", "Error")
+
 
 def main():
     """EyeballProject's main function."""
@@ -784,6 +856,7 @@ def main():
     pyAppWindow = EyeballProject()
     pyAppWindow.show()
     sys.exit(pyApp.exec())
+
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()

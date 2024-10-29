@@ -6,7 +6,7 @@ import traceback
 
 def process_image(resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods,
                   peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma,
-                  peripheral_grayscale, fovea_type, fovea_grid_size, retinal_warp, verbose, folderPath, fileName, i):
+                  peripheral_grayscale, fovea_type, fovea_grid_size, retinal_warp, verbose, folderPath, fileName, imageFiles, i):
     try:
         # Create the retina object within the worker process
         retina = ArtificialRetina(
@@ -27,7 +27,12 @@ def process_image(resolution, fovea_center, fovea_radius, peripheral_active_cone
 
         # Process the image
         image_path = os.path.join(folderPath, fileName)
-        processed_image = retina.apply(image_path=image_path)
+        if fovea_type == "dynamic":
+            next_frame_path = imageFiles[i+1] if i+1 < len(imageFiles) else image_path
+            next_frame_path = os.path.join(folderPath, next_frame_path)
+            processed_image = retina.apply(image_path=image_path, next_frame_path=next_frame_path)
+        else:
+            processed_image = retina.apply(image_path=image_path, next_frame_path=None)
         return i, processed_image
     except Exception as e:
         print(f"Error processing image {fileName}: {str(e)}")
@@ -56,10 +61,10 @@ class ImageProcessingWorker(QThread):
         start_time = datetime.datetime.now()
         imageFiles_cnt = len(self.imageFiles)
         if self.multiprocessingToggle:
-           with multiprocessing.Pool(processes=self.numCores) as pool:
+            with multiprocessing.Pool(processes=self.numCores) as pool:
                 results = []
                 for i, fileName in enumerate(self.imageFiles):
-                    result = pool.apply_async(process_image, (*self.userInput, self.folderPath, fileName, i))
+                    result = pool.apply_async(process_image, (*self.userInput, self.folderPath, fileName, self.imageFiles, i))
                     results.append(result)
 
                 for i, result in enumerate(results):
@@ -79,7 +84,12 @@ class ImageProcessingWorker(QThread):
             retina = self.generate_retina_object(*self.userInput)
             for i, fileName in enumerate(self.imageFiles):
                 image_path = QDir(self.folderPath).filePath(fileName)
-                self.processedImages[i] = retina.apply(image_path=image_path)
+                if self.userInput[9] == "dynamic":
+                    next_frame_path = self.imageFiles[i+1] if i+1 < len(self.imageFiles) else self.imageFiles[i]
+                    next_frame_path = QDir(self.folderPath).filePath(next_frame_path)
+                    self.processedImages[i] = retina.apply(image_path=image_path, next_frame_path=next_frame_path)
+                else:
+                    self.processedImages[i] = retina.apply(image_path=image_path, next_frame_path=None)
                 self.progress.emit(i+1)
                 # Calculate estimated time
                 elapsed_time = datetime.datetime.now() - start_time

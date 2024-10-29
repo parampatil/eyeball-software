@@ -135,16 +135,16 @@ class ArtificialRetina:
         # if self.display_output:
         #     self.output_image()
 
-    def apply(self, image_path: str) -> np.array:
+    def apply(self, image_path: str, next_frame_path: str) -> np.array:
         preprocessed_image = self.preprocess(image_path)
 
         # dynamically adjust the fovea location based on optic flow magnitude
         if self.foveation_type == 'dynamic':
             # get next frame (t+1)
-            self.next_frame = self.get_next_frame(image_path)
+            # self.next_frame = self.get_next_frame(image_path)
 
             # pre-process the next_frame
-            next_frame_proc = self.preprocess(self.next_frame)
+            next_frame_proc = self.preprocess(next_frame_path)
             if next_frame_proc is not None:
 
                 # pass t and t+1 frames to get coordinates for dynamic foveation

@@ -1,7 +1,6 @@
-from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QScrollArea, QGridLayout, QHBoxLayout, QPushButton, QSizePolicy, QDialog
+from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QScrollArea, QGridLayout, QHBoxLayout, QPushButton, QSizePolicy, QDialog, QMessageBox
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import QDir, Qt
-from PIL import ImageQt, Image
 
 import numpy as np
 THUMBNAILS_PER_PAGE = 24
@@ -67,10 +66,7 @@ class QImagePreview(QWidget):
     
     def updateThumbnails(self):
         # Clear existing thumbnails
-        while self.thumbnailGrid.count():
-            child = self.thumbnailGrid.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        self.clearThumbnails()
         
         start = self.currentThumbnailPage * THUMBNAILS_PER_PAGE
         end = min(start + THUMBNAILS_PER_PAGE, self.imageCount)
@@ -100,6 +96,8 @@ class QImagePreview(QWidget):
             if col >= THUMBNAILS_PER_ROW:
                 col = 0
                 row += 1
+
+            self.pageLabel.setText(f"Page {self.currentThumbnailPage+1}")
 
     def setInputPreviewImage(self, path=None, image=None):
         if path:
@@ -133,5 +131,14 @@ class QImagePreview(QWidget):
 
     def np2qimage(self, img:np.array):
         h,w,c = img.shape
-        qimg = QImage(img.data, w, h, c*w, QImage.Format.Format_RGBA8888)
+        qimg = QImage(img.data, w, h, c*w, QImage.Format.Format_RGB888)
         return qimg
+    
+    def clearThumbnails(self):
+        while self.thumbnailGrid.count():
+            child = self.thumbnailGrid.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+    
+    def clearImagePreview(self):
+        self.imagePreviewLabel.clear()

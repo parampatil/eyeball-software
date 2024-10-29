@@ -39,7 +39,7 @@ EyeballProject is a GUI application designed to simulate how the human eye perce
 - Save Images: Click on "Save Images" to save the processed images to a directory of your choice.
 
 ### To-Do
-- [ ] Merge Client's Script: Integrate the client's existing script for additional processing.
+- [x] Merge Client's Script: Integrate the client's existing script for additional processing.
 - [x] Add UI Kit: Implement a UI kit for consistent design and improved user experience.
 - [ ] Add Prompts for Status: Provide real-time status updates to the user during image processing.
 - [x] Add Progress Bar: Display a progress bar to indicate the completion status of the image processing tasks.

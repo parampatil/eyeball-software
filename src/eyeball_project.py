@@ -161,7 +161,7 @@ class EyeballProject(QMainWindow):
         self.sidebarLayout.addLayout(self.LoadSaveLayout)
 
         # Input Resolution
-        self.inputResolutionLabel = QLabel("Input Image Resolution (px)")
+        self.inputResolutionLabel = QLabel("Output Image Resolution (px)")
         self.inputResolutionLabel.setToolTip(
             "Description:Set the resolution of the input images.\nDefault: 224\nMax: 10000")
         self.inputResolutionField = QLineEdit()
@@ -281,23 +281,22 @@ class EyeballProject(QMainWindow):
         self.sidebarLayout.addWidget(self.peripheralBlurKernalLabel)
         self.sidebarLayout.addWidget(self.peripheralBlurKernalComboBox)
 
-        # Peripheral Gaussian Sigma
-        self.peripheralSigmaLabel = QLabel("Peripheral Gaussian Sigma")
-        self.peripheralSigmaLabel.setToolTip(
-            "Description: Set the sigma value for the Gaussian blur in the peripheral region.\nDefault: 0.0\nMax: 100.0")
-        self.peripheralSigmaField = QLineEdit()
-        self.peripheralSigmaLabel.setEnabled(False)
-        self.peripheralSigmaField.setEnabled(False)
+        # ! Peripheral Gaussian Sigma Delete
+        # self.peripheralSigmaLabel = QLabel("Peripheral Gaussian Sigma")
+        # self.peripheralSigmaLabel.setToolTip(
+        #     "Description: Set the sigma value for the Gaussian blur in the peripheral region.\nDefault: 0.0\nMax: 100.0")
+        # self.peripheralSigmaField = QLineEdit()
+        # self.peripheralSigmaLabel.setEnabled(False)
+        # self.peripheralSigmaField.setEnabled(False)
 
-        # Set a validator to allow only float values in the Gaussian Sigma field
+        # # Set a validator to allow only float values in the Gaussian Sigma field
         self.floatValidator = QDoubleValidator(0.0, 100.0, 2)
-        self.floatValidator.setNotation(
-            QDoubleValidator.Notation.StandardNotation)
-        self.peripheralSigmaField.setValidator(self.floatValidator)
-        self.peripheralSigmaField.setPlaceholderText("000.00")
+        self.floatValidator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        # self.peripheralSigmaField.setValidator(self.floatValidator)
+        # self.peripheralSigmaField.setPlaceholderText("000.00")
 
-        self.sidebarLayout.addWidget(self.peripheralSigmaLabel)
-        self.sidebarLayout.addWidget(self.peripheralSigmaField)
+        # self.sidebarLayout.addWidget(self.peripheralSigmaLabel)
+        # self.sidebarLayout.addWidget(self.peripheralSigmaField)
 
         # Peripheral Grayscale
         self.peripheralGrayscaleToggle = QCheckBox("Peripheral Grayscale")
@@ -305,11 +304,11 @@ class EyeballProject(QMainWindow):
             "Description: Convert the peripheral region to grayscale.")
         self.sidebarLayout.addWidget(self.peripheralGrayscaleToggle)
 
-        # Retinal Warp
-        self.retinalWarpToggle = QCheckBox("Retinal Warp")
-        self.retinalWarpToggle.setToolTip(
-            "Description: Apply retinal warp to the processed images.")
-        self.sidebarLayout.addWidget(self.retinalWarpToggle)
+        # ! Retinal Warp Delete
+        # self.retinalWarpToggle = QCheckBox("Retinal Warp")
+        # self.retinalWarpToggle.setToolTip(
+        #     "Description: Apply retinal warp to the processed images.")
+        # self.sidebarLayout.addWidget(self.retinalWarpToggle)
 
         # Fovea Type
         self.foveaTypeLabel = QLabel("Fovea Type")
@@ -347,6 +346,74 @@ class EyeballProject(QMainWindow):
         self.sidebarLayout.addWidget(self.dynamicFoveaGridSizeLabel)
         self.sidebarLayout.addWidget(self.dynamicFoveaGridSizeField)
 
+        # TODO: Add grad_blur, visual_clutter, clutter intensity, cortical magnification, magnifi strength, magnifi radius
+
+        # Gradual Blur (121, 121) combobox
+        self.gradBlurLabel = QLabel("Gradual Blur")
+        self.gradBlurLabel.setToolTip(
+            "Description: Set the kernal size for the Gaussian blur in the peripheral region.\nDefault: (121,121)")
+        self.gradBlurComboBox = QComboBox()
+        self.gradBlurComboBox.addItems(
+            ["(121,121)", "(101,101)", "(81,81)", "(61,61)", "(41,41)", "(21,21)"])
+        self.gradBlurComboBox.setItemData(0, (121, 121))
+        self.gradBlurComboBox.setItemData(1, (101, 101))
+        self.gradBlurComboBox.setItemData(2, (81, 81))
+        self.gradBlurComboBox.setItemData(3, (61, 61))
+        self.gradBlurComboBox.setItemData(4, (41, 41))
+        self.gradBlurComboBox.setItemData(5, (21, 21))
+        self.sidebarLayout.addWidget(self.gradBlurLabel)
+        self.sidebarLayout.addWidget(self.gradBlurComboBox)
+
+        # Visual Clutter True or false
+        self.visualClutterToggle = QCheckBox("Visual Clutter")
+        self.visualClutterToggle.setToolTip(
+            "Description: Enable visual clutter in the peripheral region.")
+        self.sidebarLayout.addWidget(self.visualClutterToggle)
+        self.visualClutterToggle.stateChanged.connect(self.onVisualClutterToggled)
+        
+        # Clutter Intensity
+        self.clutterIntensityLabel = QLabel("Clutter Intensity")
+        self.clutterIntensityLabel.setToolTip(
+            "Description: Set the intensity of the visual clutter.\nDefault: 0.5\nMin: 0.0\nMax: 1.0")
+        self.clutterIntensityField = QLineEdit()
+        self.clutterIntensityField.setPlaceholderText("0.5")
+        self.clutterIntensityField.setValidator(self.floatValidator)
+        self.clutterIntensityLabel.setEnabled(False)
+        self.clutterIntensityField.setEnabled(False)
+        self.sidebarLayout.addWidget(self.clutterIntensityLabel)
+        self.sidebarLayout.addWidget(self.clutterIntensityField)
+        
+        # Cortical Magnification
+        self.corticalMagnificationToggle = QCheckBox("Cortical Magnification")
+        self.corticalMagnificationToggle.setToolTip(
+            "Description: Enable cortical magnification.")
+        self.sidebarLayout.addWidget(self.corticalMagnificationToggle)
+        self.corticalMagnificationToggle.stateChanged.connect(self.onCorticalMagnificationToggled)
+
+        # Magnification Strength
+        self.magnificationStrengthLabel = QLabel("Magnification Strength")
+        self.magnificationStrengthLabel.setToolTip(
+            "Description: Set the strength of the cortical magnification.\nDefault: 1.0\nMin: 0.0\nMax: 10.0")
+        self.magnificationStrengthField = QLineEdit()
+        self.magnificationStrengthField.setPlaceholderText("1.0")
+        self.magnificationStrengthField.setValidator(self.floatValidator)
+        self.magnificationStrengthLabel.setEnabled(False)
+        self.magnificationStrengthField.setEnabled(False)
+        self.sidebarLayout.addWidget(self.magnificationStrengthLabel)
+        self.sidebarLayout.addWidget(self.magnificationStrengthField)
+        
+        # Magnification Radius
+        self.magnificationRadiusLabel = QLabel("Magnification Radius")
+        self.magnificationRadiusLabel.setToolTip(
+            "Description: Set the radius of the cortical magnification.\nDefault: 0.4\nMin: 0\nMax: 1000")
+        self.magnificationRadiusField = QLineEdit()
+        self.magnificationRadiusField.setPlaceholderText("0.4")
+        self.magnificationRadiusField.setValidator(self.floatValidator)
+        self.magnificationRadiusLabel.setEnabled(False)
+        self.magnificationRadiusField.setEnabled(False)
+        self.sidebarLayout.addWidget(self.magnificationRadiusLabel)
+        self.sidebarLayout.addWidget(self.magnificationRadiusField)
+
         # Verbose
         self.verboseToggle = QCheckBox("Verbose")
         self.verboseToggle.setToolTip(
@@ -376,24 +443,24 @@ class EyeballProject(QMainWindow):
         self.numCoresLabel.setEnabled(False)
         self.numCoresComboBox.setEnabled(False)
 
-        # Eye Type
-        self.eyeTypeLabel = QLabel("Eye Type")
-        self.eyeTypeLabel.setToolTip(
-            "Description: Select the type of eye to simulate.")
-        self.eyeTypeSingleRadioButton = QRadioButton("Single Eye")
-        self.eyeTypeDualRadioButton = QRadioButton("Dual Eye")
-        self.eyeTypeSingleRadioButton.setChecked(True)  # Default to Single Eye
+        #! Eye Type Delete
+        # self.eyeTypeLabel = QLabel("Eye Type")
+        # self.eyeTypeLabel.setToolTip(
+        #     "Description: Select the type of eye to simulate.")
+        # self.eyeTypeSingleRadioButton = QRadioButton("Single Eye")
+        # self.eyeTypeDualRadioButton = QRadioButton("Dual Eye")
+        # self.eyeTypeSingleRadioButton.setChecked(True)  # Default to Single Eye
 
-        # Group the Eye Type radio buttons
-        self.eyeTypeGroup = QButtonGroup(self)
-        self.eyeTypeGroup.addButton(self.eyeTypeSingleRadioButton)
-        self.eyeTypeGroup.addButton(self.eyeTypeDualRadioButton)
+        # # Group the Eye Type radio buttons
+        # self.eyeTypeGroup = QButtonGroup(self)
+        # self.eyeTypeGroup.addButton(self.eyeTypeSingleRadioButton)
+        # self.eyeTypeGroup.addButton(self.eyeTypeDualRadioButton)
 
-        eyeTypeLayout = QHBoxLayout()
-        eyeTypeLayout.addWidget(self.eyeTypeSingleRadioButton)
-        eyeTypeLayout.addWidget(self.eyeTypeDualRadioButton)
-        self.sidebarLayout.addWidget(self.eyeTypeLabel)
-        self.sidebarLayout.addLayout(eyeTypeLayout)
+        # eyeTypeLayout = QHBoxLayout()
+        # eyeTypeLayout.addWidget(self.eyeTypeSingleRadioButton)
+        # eyeTypeLayout.addWidget(self.eyeTypeDualRadioButton)
+        # self.sidebarLayout.addWidget(self.eyeTypeLabel)
+        # self.sidebarLayout.addLayout(eyeTypeLayout)
 
         # Adding middle layout to main layout
         layout.addLayout(midLayout)
@@ -490,10 +557,10 @@ class EyeballProject(QMainWindow):
 
         if peripheral_gaussianBlur:
             peripheral_gaussianBlur_kernal = self.peripheralBlurKernalComboBox.currentData()
-            peripheral_gaussianBlur_sigma = float(self.peripheralSigmaField.text(
-            )) if validations.isFloat(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
+            # peripheral_gaussianBlur_sigma = float(self.peripheralSigmaField.text(
+            # )) if validations.isFloat(self.peripheralSigmaField.text(), "Peripheral Sigma") else 0
         else:
-            peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma = None, None
+            peripheral_gaussianBlur_kernal = None
 
         peripheral_grayscale = self.peripheralGrayscaleToggle.isChecked()
 
@@ -503,12 +570,23 @@ class EyeballProject(QMainWindow):
         ) and validations.isInt(self.dynamicFoveaGridSizeField.text(), "Dynamic Fovea Grid Size") else 0
         fovea_grid_size = (fovea_grid_size, fovea_grid_size)
 
-        retinal_warp = self.retinalWarpToggle.isChecked()
+        # TODO: Add grad_blur, visual_clutter, clutter intensity, cortical magnification, magnifi strength, magnifi radius
+        grad_blur = self.gradBlurComboBox.currentData()
+        visual_clutter = self.visualClutterToggle.isChecked()
+        clutter_intensity = float(self.clutterIntensityField.text()) if validations.isFloat(self.clutterIntensityField.text(), "Clutter Intensity") else 0.5
+        cortical_magnification = self.corticalMagnificationToggle.isChecked()
+        magnifi_strength = float(self.magnificationStrengthField.text()) if validations.isFloat(self.magnificationStrengthField.text(), "Magnification Strength") else 1.0
+        magnifi_radius = float(self.magnificationRadiusField.text()) if validations.isFloat(self.magnificationRadiusField.text(), "Magnification Radius") else 0.4
 
-        verbose = self.verboseToggle.isChecked()
 
-        return resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, \
-            fovea_type, fovea_grid_size, retinal_warp, verbose
+
+
+        # retinal_warp = self.retinalWarpToggle.isChecked() # ! Delete this line
+
+        # verbose = self.verboseToggle.isChecked() # ! Delete this line
+
+        return resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_grayscale, \
+            fovea_type, fovea_grid_size, grad_blur, visual_clutter, clutter_intensity, cortical_magnification, magnifi_strength, magnifi_radius
 
     def save_log(self, userInput):
         filename = f"Log {datetime.datetime.now().strftime(
@@ -532,7 +610,6 @@ class EyeballProject(QMainWindow):
         Peripheral active cones: {userInput[3]}%
         Peripheral Gaussian Blur: {userInput[5]}
         Peripheral Gaussian Blur Kernal: {userInput[6]}
-        Peripheral Gaussian Blur Sigma: {userInput[7]}
         Peripheral Grayscale: {userInput[8]}
 
         Additional Settings:
@@ -662,16 +739,14 @@ class EyeballProject(QMainWindow):
                         data['peripheral_gaussianBlur'])
                     self.peripheralBlurKernalComboBox.setCurrentText(
                         data['peripheral_gaussianBlur_kernal'])
-                    self.peripheralSigmaField.setText(
-                        str(data['peripheral_gaussianBlur_sigma']))
                     self.peripheralGrayscaleToggle.setChecked(
                         data['peripheral_grayscale'])
-                    self.retinalWarpToggle.setChecked(data['retinal_warp'])
+                    # self.retinalWarpToggle.setChecked(data['retinal_warp'])
                     self.verboseToggle.setChecked(data['verbose'])
-                    self.eyeTypeSingleRadioButton.setChecked(
-                        data['eye_type'] == "Single Eye")
-                    self.eyeTypeDualRadioButton.setChecked(
-                        data['eye_type'] == "Dual Eye")
+                    # self.eyeTypeSingleRadioButton.setChecked(
+                    #     data['eye_type'] == "Single Eye")
+                    # self.eyeTypeDualRadioButton.setChecked(
+                    #     data['eye_type'] == "Dual Eye")
                     self.foveaTypeStaticRadioButton.setChecked(
                         data['fovea_type'] == "Static")
                     self.foveaTypeDynamicRadioButton.setChecked(
@@ -679,6 +754,13 @@ class EyeballProject(QMainWindow):
                     if self.foveaTypeDynamicRadioButton.isChecked():
                         self.dynamicFoveaGridSizeField.setText(
                             data['fovea_grid_size'])
+                    # TODO: Add grad_blur, visual_clutter, clutter intensity, cortical magnification, magnifi strength, magnifi radius
+                    self.gradBlurComboBox.setCurrentText(data['grad_blur'])
+                    self.visualClutterToggle.setChecked(data['visual_clutter'])
+                    self.clutterIntensityField.setText(str(data['clutter_intensity']))
+                    self.corticalMagnificationToggle.setChecked(data['cortical_magnification'])
+                    self.magnificationStrengthField.setText(str(data['magnifi_strength']))
+                    self.magnificationRadiusField.setText(str(data['magnifi_radius']))
 
                     print("Config Data loaded.")
             except Exception as e:
@@ -703,13 +785,19 @@ class EyeballProject(QMainWindow):
                     'fovea_active_rods': self.foveaRodCellsSlider.value(),
                     'peripheral_gaussianBlur': self.peripheralBlurToggle.isChecked(),
                     'peripheral_gaussianBlur_kernal': self.peripheralBlurKernalComboBox.currentText(),
-                    'peripheral_gaussianBlur_sigma': float(self.peripheralSigmaField.text()),
                     'peripheral_grayscale': self.peripheralGrayscaleToggle.isChecked(),
-                    'retinal_warp': self.retinalWarpToggle.isChecked(),
                     'verbose': self.verboseToggle.isChecked(),
-                    'eye_type': "Single Eye" if self.eyeTypeSingleRadioButton.isChecked() else "Dual Eye",
                     'fovea_type': "Static" if self.foveaTypeStaticRadioButton.isChecked() else "Dynamic",
-                    'fovea_grid_size': self.dynamicFoveaGridSizeField.text()
+                    'fovea_grid_size': self.dynamicFoveaGridSizeField.text(),
+                    # TODO: Add grad_blur, visual_clutter, clutter intensity, cortical magnification, magnifi strength, magnifi radius
+                    'grad_blur': self.gradBlurComboBox.currentText(),
+                    'visual_clutter': self.visualClutterToggle.isChecked(),
+                    'clutter_intensity': float(self.clutterIntensityField.text()),
+                    'cortical_magnification': self.corticalMagnificationToggle.isChecked(),
+                    'magnifi_strength': float(self.magnificationStrengthField.text()),
+                    'magnifi_radius': float(self.magnificationRadiusField.text()),
+                    
+
                 }
                 with open(filePath, 'w') as file:
                     json.dump(data, file, indent=4)
@@ -751,8 +839,8 @@ class EyeballProject(QMainWindow):
         is_enabled = True if state == 2 else False
         self.peripheralBlurKernalLabel.setEnabled(is_enabled)
         self.peripheralBlurKernalComboBox.setEnabled(is_enabled)
-        self.peripheralSigmaLabel.setEnabled(is_enabled)
-        self.peripheralSigmaField.setEnabled(is_enabled)
+        # self.peripheralSigmaLabel.setEnabled(is_enabled)
+        # self.peripheralSigmaField.setEnabled(is_enabled)
 
     # Slot to handle the state change of the Multiprocessing toggle
     def onMultiprocessingToggled(self, state):
@@ -760,9 +848,22 @@ class EyeballProject(QMainWindow):
         self.numCoresLabel.setEnabled(is_enabled)
         self.numCoresComboBox.setEnabled(is_enabled)
 
+    # Slot to handle the selection of Fovea Type
     def onFoveaTypeSelected(self, selected):
         self.dynamicFoveaGridSizeLabel.setEnabled(selected)
         self.dynamicFoveaGridSizeField.setEnabled(selected)
+
+    # Slot to handle the selection of clutter
+    def onVisualClutterToggled(self, selected):
+        self.clutterIntensityLabel.setEnabled(selected)
+        self.clutterIntensityField.setEnabled(selected)
+    
+    # Slot to handle the selection of cortical magnification
+    def onCorticalMagnificationToggled(self, selected):
+        self.magnificationStrengthLabel.setEnabled(selected)
+        self.magnificationStrengthField.setEnabled(selected)
+        self.magnificationRadiusLabel.setEnabled(selected)
+        self.magnificationRadiusField.setEnabled(selected)
 
     # Loading State - Disable all buttons
     def loadingStateEnable(self):

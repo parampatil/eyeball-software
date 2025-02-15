@@ -1,12 +1,10 @@
 import datetime, os, multiprocessing
 from PyQt6.QtCore import QDir, QThread, pyqtSignal
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from ArtificialRetina import ArtificialRetina
-import traceback
+from ArtificialRetinaNew import ArtificialRetina
 
-def process_image(resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods,
-                  peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma,
-                  peripheral_grayscale, fovea_type, fovea_grid_size, retinal_warp, verbose, folderPath, fileName, imageFiles, i):
+def process_image(resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_grayscale, \
+            fovea_type, fovea_grid_size, grad_blur, visual_clutter, clutter_intensity, cortical_magnification, magnifi_strength, magnifi_radius, folderPath, fileName, imageFiles, i):
     try:
         # Create the retina object within the worker process
         retina = ArtificialRetina(
@@ -17,12 +15,15 @@ def process_image(resolution, fovea_center, fovea_radius, peripheral_active_cone
             fovea_active_rods=fovea_active_rods,
             peripheral_gaussianBlur=peripheral_gaussianBlur,
             peripheral_gaussianBlur_kernal=peripheral_gaussianBlur_kernal,
-            peripheral_gaussianBlur_sigma=peripheral_gaussianBlur_sigma,
             peripheral_grayscale=peripheral_grayscale,
             foveation_type = fovea_type,
             dynamic_foveation_grid_size=fovea_grid_size,
-            retinal_warp=retinal_warp,
-            verbose=verbose
+            grad_blur=grad_blur,
+            visual_clutter=visual_clutter,
+            clutter_intensity=clutter_intensity,
+            cortical_magnifi=cortical_magnification,
+            magnifi_strength=magnifi_strength,
+            magnifi_radius=magnifi_radius,
         )
 
         # Process the image
@@ -103,7 +104,8 @@ class ImageProcessingWorker(QThread):
         self.result.emit(self.processedImages)
     
     # Generate the retina object
-    def generate_retina_object(self, resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_gaussianBlur_sigma, peripheral_grayscale, fovea_type, fovea_grid_size, retinal_warp, verbose):
+    def generate_retina_object(self, resolution, fovea_center, fovea_radius, peripheral_active_cones, fovea_active_rods, peripheral_gaussianBlur, peripheral_gaussianBlur_kernal, peripheral_grayscale, \
+            fovea_type, fovea_grid_size, grad_blur, visual_clutter, clutter_intensity, cortical_magnification, magnifi_strength, magnifi_radius):
         retina = ArtificialRetina(P=resolution,
                                     foveation_type = fovea_type,
                                     dynamic_foveation_grid_size=fovea_grid_size,
@@ -113,8 +115,12 @@ class ImageProcessingWorker(QThread):
                                     fovea_active_rods=fovea_active_rods,
                                     peripheral_gaussianBlur=peripheral_gaussianBlur,
                                     peripheral_gaussianBlur_kernal=peripheral_gaussianBlur_kernal,
-                                    peripheral_gaussianBlur_sigma=peripheral_gaussianBlur_sigma,
                                     peripheral_grayscale=peripheral_grayscale,
-                                    retinal_warp=retinal_warp,
-                                    verbose=verbose)
+                                    grad_blur=grad_blur,
+                                    visual_clutter=visual_clutter,
+                                    clutter_intensity=clutter_intensity,
+                                    cortical_magnifi=cortical_magnification,
+                                    magnifi_strength=magnifi_strength,
+                                    magnifi_radius=magnifi_radius,
+                                    )
         return retina

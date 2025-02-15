@@ -15,7 +15,7 @@ from skimage.transform import resize
 sys.path.append("/home/lpandey/retinawarp/")
 # foveated texture (peripheral vision)
 sys.path.append("/home/lpandey/Baby_Research/NeuroFovea_PyTorch/")
-from retina.retina import warp_image
+# from retina.retina import warp_image
 class ArtificialRetina:
     '''
     [args]:
